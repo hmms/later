@@ -47,6 +47,8 @@ class ViewController: NSViewController {
     let popoverView = NSPopover()
     
     let defaults = UserDefaults.standard
+    let ignoredAppBundleIDsKey = "ignoredAppBundleIDs"
+    let ignoredSystemAppNames: Set<String> = ["Finder", "Activity Monitor", "System Preferences", "System Settings", "App Store"]
     
     private var closeKey: HotKey? {
         didSet {
@@ -127,8 +129,29 @@ class ViewController: NSViewController {
         setScreenshot()
         fixStyles()
         setUpMenu()
+        normalizeIgnoredAppBundleIDs()
         
         observeModel()
+    }
+
+    func normalizeIgnoredAppBundleIDs() {
+        let ids = Set(defaults.stringArray(forKey: ignoredAppBundleIDsKey) ?? [])
+        defaults.set(Array(ids).sorted(), forKey: ignoredAppBundleIDsKey)
+    }
+
+    func ignoredAppBundleIDs() -> Set<String> {
+        return Set(defaults.stringArray(forKey: ignoredAppBundleIDsKey) ?? [])
+    }
+
+    func shouldIgnore(_ app: NSRunningApplication) -> Bool {
+        if (ignoreFinder.state == .on && ignoredSystemAppNames.contains(app.localizedName ?? "")) {
+            return true
+        }
+
+        guard let bundleID = app.bundleIdentifier else {
+            return false
+        }
+        return ignoredAppBundleIDs().contains(bundleID)
     }
     
     func observeModel() {
@@ -179,10 +202,8 @@ class ViewController: NSViewController {
     func checkAnyWindows() {
         var totalSessions = 0
         for runningApplication in NSWorkspace.shared.runningApplications {
-            if ((ignoreFinder.state == .on && (runningApplication.localizedName != "Finder" && runningApplication.localizedName != "Activity Monitor" && runningApplication.localizedName != "System Preferences" && runningApplication.localizedName != "App Store")) || ignoreFinder.state == .off) {
-                if (runningApplication.activationPolicy == .regular) {
-                    totalSessions += 1
-                }
+            if (!shouldIgnore(runningApplication) && runningApplication.activationPolicy == .regular) {
+                totalSessions += 1
             }
         }
 
@@ -218,13 +239,46 @@ class ViewController: NSViewController {
     
     // Options menu
     func setUpMenu() {
-        self.settingsMenu.addItem(NSMenuItem(title: "Visit website", action: #selector(openURL), keyEquivalent: ""))
+        let visitWebsiteItem = NSMenuItem(title: "Visit website", action: #selector(openURL), keyEquivalent: "")
+        visitWebsiteItem.target = self
+        self.settingsMenu.addItem(visitWebsiteItem)
         self.settingsMenu.addItem(checkKey)
+        let addIgnoredAppItem = NSMenuItem(title: "Add app to ignore list...", action: #selector(addIgnoredApp), keyEquivalent: "")
+        addIgnoredAppItem.target = self
+        self.settingsMenu.addItem(addIgnoredAppItem)
+        let clearIgnoredAppsItem = NSMenuItem(title: "Clear custom ignored apps", action: #selector(clearIgnoredApps), keyEquivalent: "")
+        clearIgnoredAppsItem.target = self
+        self.settingsMenu.addItem(clearIgnoredAppsItem)
         // Checking for updates, not relevant
         //self.settingsMenu.addItem(NSMenuItem(title: "Check for updates", action: #selector(checkForUpdates), keyEquivalent: ""))
         self.settingsMenu.addItem(NSMenuItem.separator())
         self.settingsMenu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "Q"))
         settingsMenu.appearance = NSAppearance.current
+    }
+
+    @objc func addIgnoredApp() {
+        let panel = NSOpenPanel()
+        panel.allowedFileTypes = ["app"]
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.prompt = "Ignore Selected Apps"
+
+        if (panel.runModal() == .OK) {
+            var ids = ignoredAppBundleIDs()
+            for appURL in panel.urls {
+                if let bundleID = Bundle(url: appURL)?.bundleIdentifier {
+                    ids.insert(bundleID)
+                }
+            }
+            defaults.set(Array(ids).sorted(), forKey: ignoredAppBundleIDsKey)
+            checkAnyWindows()
+        }
+    }
+
+    @objc func clearIgnoredApps() {
+        defaults.set([String](), forKey: ignoredAppBundleIDsKey)
+        checkAnyWindows()
     }
     
     func setScreenshot() {
@@ -423,7 +477,7 @@ class ViewController: NSViewController {
         timerCount.invalidate()
         hideTimer()
     }
-    
+
     func hideTimer() {
         timeWrapperHeight.constant = 0
         boxHeight.constant = 206
@@ -459,7 +513,7 @@ class ViewController: NSViewController {
         for runningApplication in NSWorkspace.shared.runningApplications {
             
             // Check if the application is in the exception list
-            if ((ignoreFinder.state == .on && (runningApplication.localizedName != "Finder" && runningApplication.localizedName != "Activity Monitor" && runningApplication.localizedName != "System Preferences" && runningApplication.localizedName != "App Store")) || ignoreFinder.state == .off) {
+            if (!shouldIgnore(runningApplication)) {
                 
                 // Ignore itself + only affect regular applications
                 if (runningApplication.activationPolicy == .regular && runningApplication.localizedName != "Later" && runningApplication != runningApp) {
@@ -492,7 +546,7 @@ class ViewController: NSViewController {
             }
         }
         
-        if ((ignoreFinder.state == .on && (runningApp.localizedName != "Finder" && runningApp.localizedName != "Activity Monitor" && runningApp.localizedName != "System Preferences" && runningApp.localizedName != "App Store")) || ignoreFinder.state == .off) {
+        if (!shouldIgnore(runningApp)) {
             if (runningApp.activationPolicy == .regular && runningApp.localizedName != "Later") {
                 array.append(runningApp.executableURL!.absoluteString)
                 arrayNames.append(runningApp.localizedName!)
@@ -566,10 +620,8 @@ class ViewController: NSViewController {
         // Check if apps are to be terminated as opposed to hiding them
         if (closeApps.state == .on) {
             for runningApplication in NSWorkspace.shared.runningApplications {
-                if ((ignoreFinder.state == .on && (runningApplication.localizedName != "Finder" && runningApplication.localizedName != "Activity Monitor" && runningApplication.localizedName != "System Preferences" && runningApplication.localizedName != "App Store")) || ignoreFinder.state == .off) {
-                    if (runningApplication.activationPolicy == .regular && runningApplication.localizedName != "Terminal") {
-                        runningApplication.terminate()
-                    }
+                if (!shouldIgnore(runningApplication) && runningApplication.activationPolicy == .regular && runningApplication.localizedName != "Terminal") {
+                    runningApplication.terminate()
                 }
             }
         }
