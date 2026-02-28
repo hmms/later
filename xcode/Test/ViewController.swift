@@ -127,8 +127,16 @@ class ViewController: NSViewController {
         setScreenshot()
         fixStyles()
         setUpMenu()
+        setAccessibilityIdentifiers()
         
         observeModel()
+    }
+
+    private func setAccessibilityIdentifiers() {
+        button.setAccessibilityIdentifier("saveSessionButton")
+        restore.setAccessibilityIdentifier("restoreSessionButton")
+        ignoreFinder.setAccessibilityIdentifier("ignoreSystemWindowsCheckbox")
+        closeApps.setAccessibilityIdentifier("quitAppsCheckbox")
     }
     
     func observeModel() {

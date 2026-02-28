@@ -17,6 +17,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let popoverView = NSPopover()
     var eventMonitor: EventMonitor?
     let defaults = UserDefaults.standard
+    private var isUITestMode: Bool {
+        ProcessInfo.processInfo.arguments.contains("UITEST_MODE")
+    }
      
     func runApp() {
         statusItem.button?.image = NSImage(named: NSImage.Name("icon"))
@@ -39,10 +42,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(isUITestMode ? .regular : .accessory)
         runApp();
         
-        LaunchAtLogin.isEnabled = true
+        if isUITestMode {
+            showPopover(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            LaunchAtLogin.isEnabled = true
+        }
         defaults.set(true, forKey: "ignoreSystem")
     }
 
