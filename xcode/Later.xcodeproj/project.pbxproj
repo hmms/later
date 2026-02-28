@@ -3,10 +3,11 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 53;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A6FF91C52F52B3DD00C575DC /* LaterLogic in Frameworks */ = {isa = PBXBuildFile; productRef = A6FF91C42F52B3DD00C575DC /* LaterLogic */; };
 		EC376243279C641D003144C7 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC376242279C641D003144C7 /* AppDelegate.swift */; };
 		EC376245279C641D003144C7 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC376244279C641D003144C7 /* ViewController.swift */; };
 		EC376247279C641E003144C7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EC376246279C641E003144C7 /* Assets.xcassets */; };
@@ -27,6 +28,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A6DAE4F12F5179AE0023FCF8 /* LaterTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LaterTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC37623F279C641D003144C7 /* Later.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Later.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC376242279C641D003144C7 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		EC376244279C641D003144C7 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -47,7 +49,19 @@
 		ECF31AE627BC4DF200994D3C /* ViewController2.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = ViewController2.xib; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		A6DAE4F22F5179AE0023FCF8 /* LaterTests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = LaterTests; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
+		A6DAE4EE2F5179AE0023FCF8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A6FF91C52F52B3DD00C575DC /* LaterLogic in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EC37623C279C641D003144C7 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -72,6 +86,7 @@
 			children = (
 				EC376257279EF896003144C7 /* EventMonitor.swift */,
 				EC376241279C641D003144C7 /* Test */,
+				A6DAE4F22F5179AE0023FCF8 /* LaterTests */,
 				EC376240279C641D003144C7 /* Products */,
 				B5016909258BFE6190F1F31A /* Frameworks */,
 			);
@@ -81,6 +96,7 @@
 			isa = PBXGroup;
 			children = (
 				EC37623F279C641D003144C7 /* Later.app */,
+				A6DAE4F12F5179AE0023FCF8 /* LaterTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -119,6 +135,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A6DAE4F02F5179AE0023FCF8 /* LaterTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A6DAE4F72F5179AE0023FCF8 /* Build configuration list for PBXNativeTarget "LaterTests" */;
+			buildPhases = (
+				A6DAE4ED2F5179AE0023FCF8 /* Sources */,
+				A6DAE4EE2F5179AE0023FCF8 /* Frameworks */,
+				A6DAE4EF2F5179AE0023FCF8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A6DAE4F22F5179AE0023FCF8 /* LaterTests */,
+			);
+			name = LaterTests;
+			packageProductDependencies = (
+				A6FF91C42F52B3DD00C575DC /* LaterLogic */,
+			);
+			productName = LaterTests;
+			productReference = A6DAE4F12F5179AE0023FCF8 /* LaterTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		EC37623E279C641D003144C7 /* Later */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EC37624E279C641E003144C7 /* Build configuration list for PBXNativeTarget "Later" */;
@@ -148,9 +187,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1320;
+				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 1320;
 				TargetAttributes = {
+					A6DAE4F02F5179AE0023FCF8 = {
+						CreatedOnToolsVersion = 26.2;
+					};
 					EC37623E279C641D003144C7 = {
 						CreatedOnToolsVersion = 13.2.1;
 					};
@@ -168,17 +210,26 @@
 			packageReferences = (
 				ECF6532427A5A2E2001EFA5D /* XCRemoteSwiftPackageReference "LaunchAtLogin" */,
 				ECF6532827A6F9EA001EFA5D /* XCRemoteSwiftPackageReference "HotKey" */,
+				A6DAE4FC2F517BCA0023FCF8 /* XCLocalSwiftPackageReference "../../later" */,
 			);
 			productRefGroup = EC376240279C641D003144C7 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				EC37623E279C641D003144C7 /* Later */,
+				A6DAE4F02F5179AE0023FCF8 /* LaterTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		A6DAE4EF2F5179AE0023FCF8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EC37623D279C641D003144C7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -222,6 +273,13 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A6DAE4ED2F5179AE0023FCF8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EC37623B279C641D003144C7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -246,6 +304,56 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		A6DAE4F52F5179AE0023FCF8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.murli.shenoy.LaterTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A6DAE4F62F5179AE0023FCF8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GENERATE_INFOPLIST_FILE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.murli.shenoy.LaterTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		EC37624C279C641E003144C7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -387,6 +495,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.91;
 				PRODUCT_BUNDLE_IDENTIFIER = alyssaxuu.Later;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -421,6 +530,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MARKETING_VERSION = 1.91;
 				PRODUCT_BUNDLE_IDENTIFIER = alyssaxuu.Later;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -432,6 +542,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		A6DAE4F72F5179AE0023FCF8 /* Build configuration list for PBXNativeTarget "LaterTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A6DAE4F52F5179AE0023FCF8 /* Debug */,
+				A6DAE4F62F5179AE0023FCF8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		EC37623A279C641D003144C7 /* Build configuration list for PBXProject "Later" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -451,6 +570,13 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A6DAE4FC2F517BCA0023FCF8 /* XCLocalSwiftPackageReference "../../later" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../later;
+		};
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
 		ECF6532427A5A2E2001EFA5D /* XCRemoteSwiftPackageReference "LaunchAtLogin" */ = {
@@ -472,6 +598,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A6FF91C42F52B3DD00C575DC /* LaterLogic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A6DAE4FC2F517BCA0023FCF8 /* XCLocalSwiftPackageReference "../../later" */;
+			productName = LaterLogic;
+		};
 		ECF6532527A5A2E2001EFA5D /* LaunchAtLogin */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = ECF6532427A5A2E2001EFA5D /* XCRemoteSwiftPackageReference "LaunchAtLogin" */;
