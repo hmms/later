@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A6FF91C62F52B3DD00C575DC /* LaterLogic in Frameworks */ = {isa = PBXBuildFile; productRef = A6FF91C42F52B3DD00C575DC /* LaterLogic */; };
 		A6FF91C52F52B3DD00C575DC /* LaterLogic in Frameworks */ = {isa = PBXBuildFile; productRef = A6FF91C42F52B3DD00C575DC /* LaterLogic */; };
 		EC376243279C641D003144C7 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC376242279C641D003144C7 /* AppDelegate.swift */; };
 		EC376245279C641D003144C7 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC376244279C641D003144C7 /* ViewController.swift */; };
@@ -85,6 +86,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A6FF91C62F52B3DD00C575DC /* LaterLogic in Frameworks */,
 				ECF6532A27A6F9EA001EFA5D /* HotKey in Frameworks */,
 				ECF6532627A5A2E2001EFA5D /* LaunchAtLogin in Frameworks */,
 			);
@@ -217,6 +219,7 @@
 			);
 			name = Later;
 			packageProductDependencies = (
+				A6FF91C42F52B3DD00C575DC /* LaterLogic */,
 				ECF6532527A5A2E2001EFA5D /* LaunchAtLogin */,
 				ECF6532927A6F9EA001EFA5D /* HotKey */,
 			);

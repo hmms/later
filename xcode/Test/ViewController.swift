@@ -9,6 +9,7 @@ import Cocoa
 import SwiftUI
 import LaunchAtLogin
 import HotKey
+import LaterLogic
 
 class ViewController: NSViewController {
     
@@ -46,7 +47,53 @@ class ViewController: NSViewController {
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     let popoverView = NSPopover()
     
-    let defaults = UserDefaults.standard
+    private var settings = SettingsStore()
+    private let ignoredSystemBundleIDs: Set<String> = [
+        "com.apple.finder",
+        "com.apple.ActivityMonitor",
+        "com.apple.systempreferences",
+        "com.apple.AppStore"
+    ]
+    private var isUITestMode: Bool {
+        ProcessInfo.processInfo.arguments.contains("UITEST_MODE")
+    }
+    private var uiTestStateFileURL: URL? {
+        guard let path = ProcessInfo.processInfo.environment["UITEST_STATE_FILE"], !path.isEmpty else {
+            return nil
+        }
+        return URL(fileURLWithPath: path)
+    }
+    private var isUITestStubMode: Bool {
+        ProcessInfo.processInfo.arguments.contains("UITEST_STUB_SESSION")
+    }
+    private var launchAtLoginEnabled: Bool {
+        if isUITestMode {
+            return settings.launchAtLoginEnabled
+        }
+        return LaunchAtLogin.isEnabled
+    }
+    private struct StubSessionApp {
+        let localizedName: String
+        let bundleIdentifier: String
+        let bundleURLString: String
+    }
+    private let uiTestStubApps: [StubSessionApp] = [
+        StubSessionApp(
+            localizedName: "Safari",
+            bundleIdentifier: "com.apple.Safari",
+            bundleURLString: "file:///Applications/Safari.app"
+        ),
+        StubSessionApp(
+            localizedName: "Xcode",
+            bundleIdentifier: "com.apple.dt.Xcode",
+            bundleURLString: "file:///Applications/Xcode.app"
+        ),
+        StubSessionApp(
+            localizedName: "Finder",
+            bundleIdentifier: "com.apple.finder",
+            bundleURLString: "file:///System/Library/CoreServices/Finder.app"
+        ),
+    ]
     
     private var closeKey: HotKey? {
         didSet {
@@ -77,37 +124,37 @@ class ViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        if (LaunchAtLogin.isEnabled) {
+        if (launchAtLoginEnabled) {
             checkbox.state = .on
         } else {
             checkbox.state = .off
         }
         
-        if (defaults.bool(forKey: "closeApps")) {
+        if (settings.closeAppsOnRestore) {
             closeApps.state = .on
         } else {
             closeApps.state = .off
         }
         
-        if (defaults.bool(forKey: "ignoreSystem")) {
+        if (settings.ignoreSystemApps) {
             ignoreFinder.state = .on
         } else {
             ignoreFinder.state = .off
         }
         
-        if (defaults.bool(forKey: "keepWindowsOpen")) {
+        if (settings.keepWindowsOpen) {
             keepWindowsOpen.state = .on
         } else {
             keepWindowsOpen.state = .off
         }
         
-        if (defaults.bool(forKey: "waitCheckbox")) {
+        if (settings.waitBeforeRestore) {
             waitCheckbox.state = .on
         } else {
             waitCheckbox.state = .off
         }
         
-        if (defaults.bool(forKey: "switchKey")) {
+        if (settings.globalShortcutsDisabled) {
             checkKey.state = .on
             closeKey = nil
             restoreKey = nil
@@ -118,7 +165,7 @@ class ViewController: NSViewController {
         }
         
         
-        if (!defaults.bool(forKey: "session")) {
+        if (!settings.hasSession) {
             noSessions()
         } else {
             updateSession()
@@ -130,13 +177,79 @@ class ViewController: NSViewController {
         setAccessibilityIdentifiers()
         
         observeModel()
+
+        if isUITestMode {
+            runUITestHooks()
+            writeUITestStateSnapshot()
+        }
+    }
+
+    private func runUITestHooks() {
+        let arguments = ProcessInfo.processInfo.arguments
+
+        if arguments.contains("UITEST_ENABLE_WAIT") {
+            waitCheckbox.state = .on
+            settings.waitBeforeRestore = true
+        }
+
+        if arguments.contains("UITEST_DISABLE_SHORTCUTS") {
+            settings.globalShortcutsDisabled = true
+            checkKey.state = .on
+            closeKey = nil
+            restoreKey = nil
+        } else if arguments.contains("UITEST_ENABLE_SHORTCUTS") {
+            settings.globalShortcutsDisabled = false
+            checkKey.state = .off
+            closeKey = HotKey(key: .l, modifiers: [.command, .shift])
+            restoreKey = HotKey(key: .r, modifiers: [.command, .shift])
+        }
+
+        if arguments.contains("UITEST_TOGGLE_LAUNCH_AT_LOGIN") {
+            checkbox.state = checkbox.state == .on ? .off : .on
+            startAtLogin(self)
+        }
+
+        if arguments.contains("UITEST_TRIGGER_SAVE") {
+            saveSessionGlobal()
+        }
+
+        if arguments.contains("UITEST_TRIGGER_SHORTCUT_SAVE") {
+            closeKey?.keyDownHandler?()
+        }
+
+        if arguments.contains("UITEST_TRIGGER_SHORTCUT_RESTORE") {
+            restoreKey?.keyDownHandler?()
+        }
+
+        if arguments.contains("UITEST_TRIGGER_RESTORE") {
+            restoreSessionGlobal()
+        }
+
+        if arguments.contains("UITEST_TRIGGER_CANCEL_TIMER") {
+            cancelTimeClick(self)
+        }
+
+        writeUITestStateSnapshot()
     }
 
     private func setAccessibilityIdentifiers() {
-        button.setAccessibilityIdentifier("saveSessionButton")
-        restore.setAccessibilityIdentifier("restoreSessionButton")
-        ignoreFinder.setAccessibilityIdentifier("ignoreSystemWindowsCheckbox")
-        closeApps.setAccessibilityIdentifier("quitAppsCheckbox")
+        applyTestIdentifier("saveSessionButton", to: button)
+        applyTestIdentifier("restoreSessionButton", to: restore)
+        applyTestIdentifier("ignoreSystemWindowsCheckbox", to: ignoreFinder)
+        applyTestIdentifier("quitAppsCheckbox", to: closeApps)
+        applyTestIdentifier("keepWindowsOpenCheckbox", to: keepWindowsOpen)
+        applyTestIdentifier("waitBeforeRestoreCheckbox", to: waitCheckbox)
+        applyTestIdentifier("launchAtLoginCheckbox", to: checkbox)
+        applyTestIdentifier("reopenTimerLabel", to: timeLabel)
+        applyTestIdentifier("cancelRestoreTimerButton", to: cancelTime)
+        applyTestIdentifier("sessionNameLabel", to: sessionLabel)
+        applyTestIdentifier("sessionDateLabel", to: dateLabel)
+        applyTestIdentifier("sessionCountBadge", to: numberOfSessions)
+    }
+
+    private func applyTestIdentifier(_ identifier: String, to view: NSView) {
+        view.identifier = NSUserInterfaceItemIdentifier(identifier)
+        view.setAccessibilityIdentifier(identifier)
     }
     
     func observeModel() {
@@ -182,16 +295,24 @@ class ViewController: NSViewController {
         }
         timer = Timer.scheduledTimer(timeInterval: time, target: self, selector: #selector(restoreSessionGlobal), userInfo: nil, repeats: false)
         timerCount = Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(counter), userInfo: nil, repeats: true)
+        if isUITestMode {
+            settingsStoreForUITestTimerState(true)
+            writeUITestStateSnapshot()
+        }
     }
     
     func checkAnyWindows() {
-        var totalSessions = 0
-        for runningApplication in NSWorkspace.shared.runningApplications {
-            if ((ignoreFinder.state == .on && (runningApplication.localizedName != "Finder" && runningApplication.localizedName != "Activity Monitor" && runningApplication.localizedName != "System Preferences" && runningApplication.localizedName != "App Store")) || ignoreFinder.state == .off) {
-                if (runningApplication.activationPolicy == .regular) {
-                    totalSessions += 1
+        let totalSessions: Int
+        if isUITestStubMode {
+            totalSessions = stubSessionAppsForSave().count
+        } else {
+            var runningTotal = 0
+            for runningApplication in NSWorkspace.shared.runningApplications {
+                if shouldTrackApplication(runningApplication, includeTerminal: true, includeLater: false) {
+                    runningTotal += 1
                 }
             }
+            totalSessions = runningTotal
         }
 
         if (totalSessions == 0) {
@@ -213,15 +334,16 @@ class ViewController: NSViewController {
     @objc func switchKey() {
         if (checkKey.state == .on) {
             checkKey.state = .off
-            defaults.set(false, forKey: "switchKey")
+            settings.globalShortcutsDisabled = false
             closeKey = HotKey(key: .l, modifiers: [.command, .shift])
             restoreKey = HotKey(key: .r, modifiers: [.command, .shift])
         } else {
             checkKey.state = .on
-            defaults.set(true, forKey: "switchKey")
+            settings.globalShortcutsDisabled = true
             restoreKey = nil
             closeKey = nil
         }
+        writeUITestStateSnapshot()
     }
     
     // Options menu
@@ -325,77 +447,65 @@ class ViewController: NSViewController {
     
     
     @IBAction func startAtLogin(_ sender: Any) {
-        if (checkbox.state == .on) {
-            LaunchAtLogin.isEnabled = true
-        } else {
-            LaunchAtLogin.isEnabled = false
+        let enabled = checkbox.state == .on
+        if isUITestMode {
+            settings.launchAtLoginEnabled = enabled
+            writeUITestStateSnapshot()
+            return
         }
+        LaunchAtLogin.isEnabled = enabled
     }
     
     @IBAction func closeAppsCheck(_ sender: Any) {
         if (closeApps.state == .on) {
-            defaults.set(true, forKey: "closeApps")
+            settings.closeAppsOnRestore = true
         } else {
-            defaults.set(false, forKey: "closeApps")
+            settings.closeAppsOnRestore = false
         }
     }
     
     
     @IBAction func ignoreSystemWindows(_ sender: Any) {
         if (ignoreFinder.state == .on) {
-            defaults.set(true, forKey: "ignoreSystem")
+            settings.ignoreSystemApps = true
         } else {
-            defaults.set(false, forKey: "ignoreSystem")
+            settings.ignoreSystemApps = false
         }
     }
     
     @IBAction func keepWindowsOpen(_ sender: Any) {
         if (keepWindowsOpen.state == .on) {
-            defaults.set(true, forKey: "keepWindowsOpen")
+            settings.keepWindowsOpen = true
         } else {
-            defaults.set(false, forKey: "keepWindowsOpen")
+            settings.keepWindowsOpen = false
         }
     }
     
     @IBAction func waitCheckboxChange(_ sender: Any) {
         if (waitCheckbox.state == .on) {
-            defaults.set(true, forKey: "waitCheckbox")
+            settings.waitBeforeRestore = true
         } else {
-            defaults.set(false, forKey: "waitCheckbox")
+            settings.waitBeforeRestore = false
         }
     }
     
     // Take a screenshot of the workspace to remember how it was like
     func takeScreenshot() {
-        var displayCount: UInt32 = 0;
-        var result = CGGetActiveDisplayList(0, nil, &displayCount)
-        if (result != CGError.success) {
-            print("error: \(result)")
+        guard let screenshot = CGDisplayCreateImage(CGMainDisplayID()) else {
             return
         }
-        let allocated = Int(displayCount)
-        let activeDisplays = UnsafeMutablePointer<CGDirectDisplayID>.allocate(capacity: allocated)
-        result = CGGetActiveDisplayList(displayCount, activeDisplays, &displayCount)
-        
-        if (result != CGError.success) {
-            print("error: \(result)")
+
+        let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0] as NSURL
+        let fileUrl = documentsUrl.appendingPathComponent("screenshot.jpg")
+        let bitmapRep = NSBitmapImageRep(cgImage: screenshot)
+        guard let jpegData = bitmapRep.representation(using: NSBitmapImageRep.FileType.jpeg, properties: [:]) else {
             return
         }
-           
-        for i in 1...displayCount {
-            let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0] as NSURL
-            let fileUrl = documentsUrl.appendingPathComponent("screenshot.jpg")
-            let screenShot:CGImage = CGDisplayCreateImage(activeDisplays[Int(i-1)])!
-            let bitmapRep = NSBitmapImageRep(cgImage: screenShot)
-            let jpegData = bitmapRep.representation(using: NSBitmapImageRep.FileType.jpeg, properties: [:])!
-            
-            do {
-                try jpegData.write(to: fileUrl!, options: .atomic)
-            }
-            catch {
-                print("error: \(error)")
-                
-            }
+
+        do {
+            try jpegData.write(to: fileUrl!, options: .atomic)
+        } catch {
+            print("error: \(error)")
         }
     }
     
@@ -404,7 +514,7 @@ class ViewController: NSViewController {
         let formatter = DateFormatter()
         formatter.timeStyle = .medium
         formatter.dateStyle = .medium
-        defaults.set(formatter.string(from: currentDateTime), forKey: "date")
+        settings.sessionDate = formatter.string(from: currentDateTime)
     }
     
     
@@ -430,6 +540,10 @@ class ViewController: NSViewController {
         timer.invalidate()
         timerCount.invalidate()
         hideTimer()
+        if isUITestMode {
+            settingsStoreForUITestTimerState(false)
+            writeUITestStateSnapshot()
+        }
     }
     
     func hideTimer() {
@@ -458,74 +572,70 @@ class ViewController: NSViewController {
         var totalSessions = 0
         var lastState = false;
         
-        takeScreenshot()
-        
-        let runningApp = NSWorkspace.shared.frontmostApplication!
-        
-        NSApp.setActivationPolicy(.regular)
-
-        for runningApplication in NSWorkspace.shared.runningApplications {
-            
-            // Check if the application is in the exception list
-            if ((ignoreFinder.state == .on && (runningApplication.localizedName != "Finder" && runningApplication.localizedName != "Activity Monitor" && runningApplication.localizedName != "System Preferences" && runningApplication.localizedName != "App Store")) || ignoreFinder.state == .off) {
-                
-                // Ignore itself + only affect regular applications
-                if (runningApplication.activationPolicy == .regular && runningApplication.localizedName != "Later" && runningApplication != runningApp) {
-                    array.append(runningApplication.executableURL!.absoluteString)
-                    arrayNames.append(runningApplication.localizedName!)
-                    
-                    // Only close if "keep windows open" checkbox is disabled
-                    if (keepWindowsOpen.state == .off) {
-                        runningApplication.hide()
-                    } else {
-                        if (runningApplication.localizedName != "Finder") {
-                            runningApplication.terminate()
-                        }
-                        lastState = true;
-                    }
-                    
-                    // Get application names for session label
-                    if (sessionName == "") {
-                        sessionName = runningApplication.localizedName!
-                        sessionFull = runningApplication.localizedName!
-                    } else if (sessionsAdded <= 3) {
-                        sessionName += ", "+runningApplication.localizedName!
-                    } else {
-                        sessionsRemaining += 1
-                    }
-                    sessionFull += ", "+runningApplication.localizedName!
-                    sessionsAdded += 1
-                    totalSessions += 1
-                }
-            }
+        if !isUITestStubMode {
+            takeScreenshot()
+            NSApp.setActivationPolicy(.regular)
         }
-        
-        if ((ignoreFinder.state == .on && (runningApp.localizedName != "Finder" && runningApp.localizedName != "Activity Monitor" && runningApp.localizedName != "System Preferences" && runningApp.localizedName != "App Store")) || ignoreFinder.state == .off) {
-            if (runningApp.activationPolicy == .regular && runningApp.localizedName != "Later") {
-                array.append(runningApp.executableURL!.absoluteString)
-                arrayNames.append(runningApp.localizedName!)
-                
-                // Only close if "keep windows open" checkbox is disabled
-                if (keepWindowsOpen.state == .off) {
-                    runningApp.hide()
-                } else {
-                    if (runningApp.localizedName != "Finder") {
-                        runningApp.terminate()
-                    }
-                    lastState = true;
+
+        if isUITestStubMode {
+            for runningApplication in stubSessionAppsForSave() {
+                array.append(runningApplication.bundleURLString)
+                arrayNames.append(runningApplication.localizedName)
+
+                if keepWindowsOpen.state == .off && runningApplication.bundleIdentifier != "com.apple.finder" {
+                    lastState = true
                 }
-                // Get application names for session label
-                if (sessionName == "") {
-                    sessionName = runningApp.localizedName!
-                    sessionFull = runningApp.localizedName!
+
+                if sessionName == "" {
+                    sessionName = runningApplication.localizedName
+                    sessionFull = runningApplication.localizedName
                 } else if (sessionsAdded <= 3) {
-                    sessionName += ", "+runningApp.localizedName!
+                    sessionName += ", " + runningApplication.localizedName
                 } else {
                     sessionsRemaining += 1
                 }
-                sessionFull += ", "+runningApp.localizedName!
+                sessionFull += ", " + runningApplication.localizedName
                 sessionsAdded += 1
                 totalSessions += 1
+            }
+        } else {
+            for runningApplication in NSWorkspace.shared.runningApplications {
+                if shouldTrackApplication(runningApplication, includeTerminal: true, includeLater: false) {
+                    if let bundleURL = runningApplication.bundleURL {
+                        array.append(bundleURL.absoluteString)
+                    }
+                    if let localizedName = runningApplication.localizedName {
+                        arrayNames.append(localizedName)
+                    } else {
+                        arrayNames.append("")
+                    }
+
+                    // Keep windows open by hiding apps; otherwise terminate.
+                    if (keepWindowsOpen.state == .on) {
+                        runningApplication.hide()
+                    } else {
+                        if !isFinderApp(runningApplication) {
+                            runningApplication.terminate()
+                        }
+                        lastState = true
+                    }
+
+                    // Get application names for session label
+                    if let localizedName = runningApplication.localizedName {
+                        if (sessionName == "") {
+                            sessionName = localizedName
+                            sessionFull = localizedName
+                        } else if (sessionsAdded <= 3) {
+                            sessionName += ", " + localizedName
+                        } else {
+                            sessionsRemaining += 1
+                        }
+                        sessionFull += ", " + localizedName
+                    }
+
+                    sessionsAdded += 1
+                    totalSessions += 1
+                }
             }
         }
         
@@ -533,35 +643,97 @@ class ViewController: NSViewController {
             sessionName += ", +"+String(sessionsRemaining)+" more"
         }
         
-        NSApp.setActivationPolicy(.accessory)
+        if !isUITestStubMode {
+            NSApp.setActivationPolicy(.accessory)
+        }
         
         // Save session data
-        defaults.set(lastState, forKey:"lastState")
-        defaults.set(array, forKey: "apps")
-        defaults.set(arrayNames, forKey: "appNames")
-        defaults.set(sessionName, forKey: "sessionName")
-        defaults.set(sessionFull, forKey: "sessionFullName")
-        defaults.set(String(totalSessions), forKey: "totalSessions")
+        settings.lastStateWasTerminate = lastState
+        settings.savedAppURLs = array
+        settings.savedAppNames = arrayNames
+        settings.sessionName = sessionName
+        settings.sessionFullName = sessionFull
+        settings.totalSessions = String(totalSessions)
         getCurrentDate()
         updateSession()
         if (waitCheckbox.state == .on) {
             waitForSession()
         }
         
-        let appDelegate = NSApp.delegate as! AppDelegate
-        appDelegate.closePopover(self)
+        if !isUITestMode {
+            let appDelegate = NSApp.delegate as! AppDelegate
+            appDelegate.closePopover(self)
+        }
+        writeUITestStateSnapshot()
     }
     
-    func activate(name: String, url:String) {
+    private func appURL(from savedURLString: String) -> URL? {
+        guard let parsedURL = URL(string: savedURLString) else {
+            return nil
+        }
+        if parsedURL.pathExtension == "app" {
+            return parsedURL
+        }
+
+        var candidate = parsedURL
+        while candidate.path != "/" {
+            if candidate.pathExtension == "app" {
+                return candidate
+            }
+            candidate.deleteLastPathComponent()
+        }
+        return nil
+    }
+
+    private func shouldIgnoreSystemApplication(_ runningApplication: NSRunningApplication) -> Bool {
+        guard ignoreFinder.state == .on else {
+            return false
+        }
+        return ignoredSystemBundleIDs.contains(runningApplication.bundleIdentifier ?? "")
+    }
+
+    private func isFinderApp(_ runningApplication: NSRunningApplication) -> Bool {
+        runningApplication.bundleIdentifier == "com.apple.finder"
+    }
+
+    private func shouldTrackApplication(_ runningApplication: NSRunningApplication, includeTerminal: Bool, includeLater: Bool) -> Bool {
+        if runningApplication.activationPolicy != .regular {
+            return false
+        }
+        if !includeLater && runningApplication.localizedName == "Later" {
+            return false
+        }
+        if !includeTerminal && runningApplication.localizedName == "Terminal" {
+            return false
+        }
+        if shouldIgnoreSystemApplication(runningApplication) {
+            return false
+        }
+        return true
+    }
+
+    private func stubSessionAppsForSave() -> [StubSessionApp] {
+        uiTestStubApps.filter { app in
+            if ignoreFinder.state == .on && ignoredSystemBundleIDs.contains(app.bundleIdentifier) {
+                return false
+            }
+            return true
+        }
+    }
+
+    func activate(name: String, url: String) {
         guard let app = NSWorkspace.shared.runningApplications.filter ({
             return $0.localizedName == name
         }).first else {
-            do {
-                let task = Process()
-                task.executableURL = URL.init(string:url)
-                try task.run()
-            } catch {
-                print("Error")
+            if let appURL = appURL(from: url) {
+                NSWorkspace.shared.openApplication(
+                    at: appURL,
+                    configuration: NSWorkspace.OpenConfiguration()
+                ) { _, error in
+                    if let error = error {
+                        print("Error opening \(appURL): \(error)")
+                    }
+                }
             }
             return
         }
@@ -572,33 +744,39 @@ class ViewController: NSViewController {
     @objc func restoreSessionGlobal() {
         
         // Check if apps are to be terminated as opposed to hiding them
-        if (closeApps.state == .on) {
+        if (closeApps.state == .on && !isUITestStubMode) {
             for runningApplication in NSWorkspace.shared.runningApplications {
-                if ((ignoreFinder.state == .on && (runningApplication.localizedName != "Finder" && runningApplication.localizedName != "Activity Monitor" && runningApplication.localizedName != "System Preferences" && runningApplication.localizedName != "App Store")) || ignoreFinder.state == .off) {
-                    if (runningApplication.activationPolicy == .regular && runningApplication.localizedName != "Terminal") {
-                        runningApplication.terminate()
-                    }
+                if shouldTrackApplication(runningApplication, includeTerminal: false, includeLater: true) {
+                    runningApplication.terminate()
                 }
             }
         }
         
         // Restore apps
-        if let apps = defaults.object(forKey: "appNames") as? [String] {
-            if let executables = defaults.object(forKey: "apps") as? [String] {
+        let apps = settings.savedAppNames
+        let executables = settings.savedAppURLs
+        if !apps.isEmpty && apps.count == executables.count {
+            if !isUITestStubMode {
                 for (index, app) in apps.enumerated() {
-                    activate(name:app, url:executables[index])
+                    activate(name: app, url: executables[index])
                 }
-                noSessions()
             }
+            noSessions()
+        }
+        if isUITestMode {
+            settingsStoreForUITestTimerState(false)
         }
         
-        let appDelegate = NSApp.delegate as! AppDelegate
-        appDelegate.closePopover(self)
+        if !isUITestMode {
+            let appDelegate = NSApp.delegate as! AppDelegate
+            appDelegate.closePopover(self)
+        }
+        writeUITestStateSnapshot()
     }
     
     // No sessions popover state
     func noSessions() {
-        defaults.set(false, forKey:"session")
+        settings.hasSession = false
         boxHeight.constant = 0
         topBoxSpacing.constant = 0
         containerHeight.constant = 290
@@ -618,21 +796,13 @@ class ViewController: NSViewController {
     
     // New session or override
     func updateSession() {
-        defaults.set(true, forKey:"session")
-        if let dateString = defaults.string(forKey: "date") {
-            dateLabel.stringValue = dateString
-            dateLabel.lineBreakMode = .byTruncatingTail
-        }
-        if let sessionName = defaults.string(forKey: "sessionName") {
-            sessionLabel.stringValue = sessionName
-            sessionLabel.lineBreakMode = .byTruncatingTail
-            if let sessionFullName = defaults.string(forKey: "sessionFullName") {
-                sessionLabel.toolTip = sessionFullName
-            }
-        }
-        if let totalSessions = defaults.string(forKey: "totalSessions") {
-            numberOfSessions.title = totalSessions
-        }
+        settings.hasSession = true
+        dateLabel.stringValue = settings.sessionDate
+        dateLabel.lineBreakMode = .byTruncatingTail
+        sessionLabel.stringValue = settings.sessionName
+        sessionLabel.lineBreakMode = .byTruncatingTail
+        sessionLabel.toolTip = settings.sessionFullName
+        numberOfSessions.title = settings.totalSessions
         if (waitCheckbox.state == .on) {
             showTimer()
         } else {
@@ -645,6 +815,35 @@ class ViewController: NSViewController {
         currentView.needsLayout = true
         currentView.updateConstraints()
         checkAnyWindows()
+    }
+
+    private func settingsStoreForUITestTimerState(_ isScheduled: Bool) {
+        UserDefaults.standard.set(isScheduled, forKey: "uiTestTimerScheduled")
+    }
+
+    private func writeUITestStateSnapshot() {
+        guard isUITestMode, let stateFileURL = uiTestStateFileURL else {
+            return
+        }
+
+        let payload: [String: Any] = [
+            "hasSession": settings.hasSession,
+            "savedAppCount": settings.savedAppNames.count,
+            "timerScheduled": UserDefaults.standard.bool(forKey: "uiTestTimerScheduled"),
+            "globalShortcutsDisabled": settings.globalShortcutsDisabled,
+            "launchAtLoginEnabled": settings.launchAtLoginEnabled,
+        ]
+
+        guard JSONSerialization.isValidJSONObject(payload) else {
+            return
+        }
+
+        do {
+            let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+            try data.write(to: stateFileURL, options: .atomic)
+        } catch {
+            print("Failed to write UI test snapshot: \(error)")
+        }
     }
     
 }

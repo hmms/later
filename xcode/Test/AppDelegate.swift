@@ -7,7 +7,7 @@
 
 import Cocoa
 import SwiftUI
-import LaunchAtLogin
+import LaterLogic
 
 
 @main
@@ -16,9 +16,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let statusItem = NSStatusBar.system.statusItem(withLength: 20)
     let popoverView = NSPopover()
     var eventMonitor: EventMonitor?
-    let defaults = UserDefaults.standard
+    private var settings = SettingsStore()
     private var isUITestMode: Bool {
         ProcessInfo.processInfo.arguments.contains("UITEST_MODE")
+    }
+    private var shouldResetUITestDefaults: Bool {
+        ProcessInfo.processInfo.arguments.contains("UITEST_RESET_DEFAULTS")
     }
      
     func runApp() {
@@ -42,16 +45,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        if isUITestMode && shouldResetUITestDefaults, let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        }
+
         NSApp.setActivationPolicy(isUITestMode ? .regular : .accessory)
         runApp();
         
         if isUITestMode {
             showPopover(nil)
             NSApp.activate(ignoringOtherApps: true)
-        } else {
-            LaunchAtLogin.isEnabled = true
         }
-        defaults.set(true, forKey: "ignoreSystem")
+        settings.ignoreSystemApps = true
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
