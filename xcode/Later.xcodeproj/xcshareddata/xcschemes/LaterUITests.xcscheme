@@ -6,6 +6,22 @@
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
       buildArchitectures = "Automatic">
+      <BuildActionEntries>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "EC37623E279C641D003144C7"
+               BuildableName = "Later.app"
+               BlueprintName = "Later"
+               ReferencedContainer = "container:Later.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+      </BuildActionEntries>
    </BuildAction>
    <TestAction
       buildConfiguration = "Debug"
@@ -14,15 +30,23 @@
       shouldUseLaunchSchemeArgsEnv = "YES"
       codeCoverageEnabled = "YES"
       shouldAutocreateTestPlan = "YES">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "EC37623E279C641D003144C7"
+            BuildableName = "Later.app"
+            BlueprintName = "Later"
+            ReferencedContainer = "container:Later.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
       <Testables>
          <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
+            skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "A6DAE4F02F5179AE0023FCF8"
-               BuildableName = "LaterTests.xctest"
-               BlueprintName = "LaterTests"
+               BlueprintIdentifier = "B7A100022F60000100A1A1A1"
+               BuildableName = "LaterUITests.xctest"
+               BlueprintName = "LaterUITests"
                ReferencedContainer = "container:Later.xcodeproj">
             </BuildableReference>
          </TestableReference>
