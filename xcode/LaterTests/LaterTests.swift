@@ -129,6 +129,90 @@ struct SessionRulesTests {
     }
 }
 
+@Suite("AppFilterService")
+struct AppFilterServiceTests {
+    private let service = AppFilterService()
+
+    @Test("Nil bundle identifier is not ignored")
+    func nilBundleIDIsNotIgnored() {
+        #expect(!service.shouldIgnore(bundleID: nil, ignoreSystemApps: true))
+    }
+
+    @Test("System app is ignored when system filtering is enabled")
+    func systemAppIgnoredWhenEnabled() {
+        #expect(service.shouldIgnore(bundleID: "com.apple.finder", ignoreSystemApps: true))
+    }
+
+    @Test("System app is not ignored when system filtering is disabled")
+    func systemAppNotIgnoredWhenDisabled() {
+        #expect(!service.shouldIgnore(bundleID: "com.apple.finder", ignoreSystemApps: false))
+    }
+
+    @Test("Custom ignored bundle ID is ignored")
+    func customIgnoredBundleIDIsIgnored() {
+        #expect(
+            service.shouldIgnore(
+                bundleID: "com.apple.Music",
+                ignoreSystemApps: false,
+                customIgnoredBundleIDs: ["com.apple.Music"]
+            )
+        )
+    }
+
+    @Test("Only regular activation policy apps are tracked")
+    func nonRegularAppsAreNotTracked() {
+        #expect(
+            !service.shouldTrack(
+                activationPolicyIsRegular: false,
+                localizedName: "Safari",
+                bundleIdentifier: "com.apple.Safari",
+                includeTerminal: true,
+                includeLater: true,
+                ignoreSystemApps: false
+            )
+        )
+    }
+
+    @Test("Terminal and Later filters are respected")
+    func terminalAndLaterFiltersAreRespected() {
+        #expect(
+            !service.shouldTrack(
+                activationPolicyIsRegular: true,
+                localizedName: "Terminal",
+                bundleIdentifier: "com.apple.Terminal",
+                includeTerminal: false,
+                includeLater: true,
+                ignoreSystemApps: false
+            )
+        )
+        #expect(
+            !service.shouldTrack(
+                activationPolicyIsRegular: true,
+                localizedName: "Later",
+                bundleIdentifier: "alyssaxuu.Later",
+                includeTerminal: true,
+                includeLater: false,
+                ignoreSystemApps: false
+            )
+        )
+    }
+
+    @Test("Excluded bundle IDs are not tracked")
+    func excludedBundleIDsAreNotTracked() {
+        #expect(
+            !service.shouldTrack(
+                activationPolicyIsRegular: true,
+                localizedName: "Later",
+                bundleIdentifier: "alyssaxuu.Later",
+                includeTerminal: true,
+                includeLater: true,
+                ignoreSystemApps: false,
+                excludedBundleIDs: ["alyssaxuu.Later"]
+            )
+        )
+    }
+}
+
 @Suite("SettingsStore")
 struct SettingsStoreTests {
     private func makeStore() -> (SettingsStore, UserDefaults, String) {
