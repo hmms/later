@@ -50,12 +50,7 @@ class ViewController: NSViewController {
     let popoverView = NSPopover()
     
     private var settings = SettingsStore()
-    private let ignoredSystemBundleIDs: Set<String> = [
-        "com.apple.finder",
-        "com.apple.ActivityMonitor",
-        "com.apple.systempreferences",
-        "com.apple.AppStore"
-    ]
+    private let appFilter = AppFilterService()
     private var isUITestMode: Bool {
         ProcessInfo.processInfo.arguments.contains("UITEST_MODE")
     }
@@ -719,10 +714,10 @@ class ViewController: NSViewController {
     }
 
     private func shouldIgnoreSystemApplication(_ runningApplication: NSRunningApplication) -> Bool {
-        guard ignoreFinder.state == .on else {
-            return false
-        }
-        return ignoredSystemBundleIDs.contains(runningApplication.bundleIdentifier ?? "")
+        appFilter.shouldIgnore(
+            bundleID: runningApplication.bundleIdentifier,
+            ignoreSystemApps: ignoreFinder.state == .on
+        )
     }
 
     private func isFinderApp(_ runningApplication: NSRunningApplication) -> Bool {
@@ -730,24 +725,30 @@ class ViewController: NSViewController {
     }
 
     private func shouldTrackApplication(_ runningApplication: NSRunningApplication, includeTerminal: Bool, includeLater: Bool) -> Bool {
-        if runningApplication.activationPolicy != .regular {
-            return false
-        }
-        if !includeLater && runningApplication.localizedName == "Later" {
-            return false
-        }
-        if !includeTerminal && runningApplication.localizedName == "Terminal" {
-            return false
-        }
-        if shouldIgnoreSystemApplication(runningApplication) {
-            return false
-        }
-        return true
+        let excludedBundleIDs: Set<String> = {
+            guard let currentBundleID = Bundle.main.bundleIdentifier else {
+                return []
+            }
+            return [currentBundleID]
+        }()
+
+        return appFilter.shouldTrack(
+            activationPolicyIsRegular: runningApplication.activationPolicy == .regular,
+            localizedName: runningApplication.localizedName,
+            bundleIdentifier: runningApplication.bundleIdentifier,
+            includeTerminal: includeTerminal,
+            includeLater: includeLater,
+            ignoreSystemApps: ignoreFinder.state == .on,
+            excludedBundleIDs: excludedBundleIDs
+        )
     }
 
     private func stubSessionAppsForSave() -> [StubSessionApp] {
         uiTestStubApps.filter { app in
-            if ignoreFinder.state == .on && ignoredSystemBundleIDs.contains(app.bundleIdentifier) {
+            if appFilter.shouldIgnore(
+                bundleID: app.bundleIdentifier,
+                ignoreSystemApps: ignoreFinder.state == .on
+            ) {
                 return false
             }
             return true
