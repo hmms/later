@@ -36,6 +36,8 @@ class ViewController: NSViewController {
     
     var timer = Timer()
     var timerCount = Timer()
+    var restoreDeadline: Date?
+    var restoreWorkItem: DispatchWorkItem?
     let settingsMenu = NSMenu()
     var count: Double = 0.0
     
@@ -261,16 +263,24 @@ class ViewController: NSViewController {
     }
     
     @objc func counter() {
-        if (count >= 0) {
-            count -= 1.0
-            hmsFrom(seconds: Int(count)) { hours, minutes, seconds in
-                let hours = self.getStringFrom(seconds: hours)
-                let minutes = self.getStringFrom(seconds: minutes)
-                let seconds = self.getStringFrom(seconds: seconds)
-                self.timeLabel.stringValue = "Reopening in "+"\(hours):\(minutes):\(seconds)"
-            }
-        } else {
+        guard let restoreDeadline else {
             timerCount.invalidate()
+            return
+        }
+
+        let remainingSeconds = max(0, Int(ceil(restoreDeadline.timeIntervalSinceNow)))
+        hmsFrom(seconds: remainingSeconds) { hours, minutes, seconds in
+            let hours = self.getStringFrom(seconds: hours)
+            let minutes = self.getStringFrom(seconds: minutes)
+            let seconds = self.getStringFrom(seconds: seconds)
+            self.timeLabel.stringValue = "Reopening in "+"\(hours):\(minutes):\(seconds)"
+        }
+
+        if remainingSeconds == 0 {
+            // Ensure restore happens even if the scheduled timer callback is delayed.
+            timer.invalidate()
+            timerCount.invalidate()
+            restoreSessionGlobal()
         }
     }
     
@@ -286,15 +296,29 @@ class ViewController: NSViewController {
         } else if (timeDropdown.titleOfSelectedItem == "5 hours") {
             time = 60*60*5
         }
+        restoreDeadline = Date().addingTimeInterval(time)
         count = time
-        hmsFrom(seconds: Int(count)) { hours, minutes, seconds in
+        hmsFrom(seconds: Int(time)) { hours, minutes, seconds in
             let hours = self.getStringFrom(seconds: hours)
             let minutes = self.getStringFrom(seconds: minutes)
             let seconds = self.getStringFrom(seconds: seconds)
             self.timeLabel.stringValue = "Reopening in "+"\(hours):\(minutes):\(seconds)"
         }
-        timer = Timer.scheduledTimer(timeInterval: time, target: self, selector: #selector(restoreSessionGlobal), userInfo: nil, repeats: false)
-        timerCount = Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(counter), userInfo: nil, repeats: true)
+        restoreWorkItem?.cancel()
+        let restoreWork = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            guard let deadline = self.restoreDeadline, deadline.timeIntervalSinceNow <= 0 else { return }
+            self.restoreSessionGlobal()
+        }
+        restoreWorkItem = restoreWork
+        DispatchQueue.main.asyncAfter(deadline: .now() + time, execute: restoreWork)
+
+        timerCount.invalidate()
+        timerCount = Timer(timeInterval: 1.0, target: self, selector: #selector(counter), userInfo: nil, repeats: true)
+        timerCount.tolerance = 0.1
+        RunLoop.main.add(timerCount, forMode: .common)
+        RunLoop.main.add(timerCount, forMode: .eventTracking)
+
         if isUITestMode {
             settingsStoreForUITestTimerState(true)
             writeUITestStateSnapshot()
@@ -443,6 +467,10 @@ class ViewController: NSViewController {
             mutableAttributedTitle.addAttribute(.foregroundColor, value: #colorLiteral(red: 0.155318439, green: 0.5206356049, blue: 1, alpha: 1), range: NSRange(location: 0, length: mutableAttributedTitle.length))
             cancelTime.attributedTitle = mutableAttributedTitle
         }
+
+        // Keep countdown glyph widths stable so the timer text does not jitter every second.
+        let countdownSize = timeLabel.font?.pointSize ?? NSFont.systemFontSize
+        timeLabel.font = NSFont.monospacedDigitSystemFont(ofSize: countdownSize, weight: .regular)
     }
     
     
@@ -539,6 +567,9 @@ class ViewController: NSViewController {
     @IBAction func cancelTimeClick(_ sender: Any) {
         timer.invalidate()
         timerCount.invalidate()
+        restoreWorkItem?.cancel()
+        restoreWorkItem = nil
+        restoreDeadline = nil
         hideTimer()
         if isUITestMode {
             settingsStoreForUITestTimerState(false)
@@ -742,6 +773,11 @@ class ViewController: NSViewController {
     }
     
     @objc func restoreSessionGlobal() {
+        timer.invalidate()
+        timerCount.invalidate()
+        restoreWorkItem?.cancel()
+        restoreWorkItem = nil
+        restoreDeadline = nil
         
         // Check if apps are to be terminated as opposed to hiding them
         if (closeApps.state == .on && !isUITestStubMode) {
