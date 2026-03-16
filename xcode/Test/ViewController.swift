@@ -144,10 +144,11 @@ class ViewController: NSViewController {
             ignoreFinder.state = .off
         }
         
-        if (settings.keepWindowsOpen) {
-            keepWindowsOpen.state = .on
-        } else {
+        // Persisted value means "keep windows open" (hide apps). The checkbox label is inverse.
+        if settings.keepWindowsOpen {
             keepWindowsOpen.state = .off
+        } else {
+            keepWindowsOpen.state = .on
         }
         
         if (settings.waitBeforeRestore) {
@@ -502,11 +503,8 @@ class ViewController: NSViewController {
     }
     
     @IBAction func keepWindowsOpen(_ sender: Any) {
-        if (keepWindowsOpen.state == .on) {
-            settings.keepWindowsOpen = true
-        } else {
-            settings.keepWindowsOpen = false
-        }
+        // Persisted value keeps legacy meaning: true => keep windows open (hide apps).
+        settings.keepWindowsOpen = (keepWindowsOpen.state == .off)
     }
     
     @IBAction func waitCheckboxChange(_ sender: Any) {
@@ -613,7 +611,7 @@ class ViewController: NSViewController {
                 array.append(runningApplication.bundleURLString)
                 arrayNames.append(runningApplication.localizedName)
 
-                if keepWindowsOpen.state == .off && runningApplication.bundleIdentifier != "com.apple.finder" {
+                if keepWindowsOpen.state == .on && runningApplication.bundleIdentifier != "com.apple.finder" {
                     lastState = true
                 }
 
@@ -630,8 +628,10 @@ class ViewController: NSViewController {
                 totalSessions += 1
             }
         } else {
+            var trackedApplications = [NSRunningApplication]()
             for runningApplication in NSWorkspace.shared.runningApplications {
                 if shouldTrackApplication(runningApplication, includeTerminal: true, includeLater: false) {
+                    trackedApplications.append(runningApplication)
                     if let bundleURL = runningApplication.bundleURL {
                         array.append(bundleURL.absoluteString)
                     }
@@ -639,16 +639,6 @@ class ViewController: NSViewController {
                         arrayNames.append(localizedName)
                     } else {
                         arrayNames.append("")
-                    }
-
-                    // Keep windows open by hiding apps; otherwise terminate.
-                    if (keepWindowsOpen.state == .on) {
-                        runningApplication.hide()
-                    } else {
-                        if !isFinderApp(runningApplication) {
-                            runningApplication.terminate()
-                        }
-                        lastState = true
                     }
 
                     // Get application names for session label
@@ -666,6 +656,18 @@ class ViewController: NSViewController {
 
                     sessionsAdded += 1
                     totalSessions += 1
+                }
+            }
+
+            // Apply hide/quit after collection so we don't mutate running apps while iterating.
+            if keepWindowsOpen.state == .on {
+                for runningApplication in trackedApplications where !isFinderApp(runningApplication) {
+                    runningApplication.terminate()
+                    lastState = true
+                }
+            } else {
+                for runningApplication in trackedApplications {
+                    runningApplication.hide()
                 }
             }
         }
