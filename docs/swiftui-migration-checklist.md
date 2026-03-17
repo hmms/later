@@ -23,7 +23,7 @@ This checklist operationalizes [swiftui-migration-plan_v2.md](./swiftui-migratio
 - [x] Add `SettingsStore` tests for defaults and round-trip persistence.
 - [x] Introduce `AppFilterService` and migrate all filtering checks to it.
 - [x] Add `AppFilterService` tests for system/custom/nil bundle-id cases.
-- [ ] Create initial `AppViewModel` with read-only state mirrored from current UI.
+- [x] Create initial `AppViewModel` with read-only state mirrored from current UI.
 - [ ] Move timer state + timer actions from `ViewController` into `AppViewModel`.
 - [ ] Move save/restore orchestration from `ViewController` into `AppViewModel`.
 - [ ] Move hotkey wiring out of `ViewController` and into `AppViewModel` or `AppDelegate`.
@@ -57,3 +57,4 @@ This checklist operationalizes [swiftui-migration-plan_v2.md](./swiftui-migratio
 - 2026-03-14: Added typed `SettingsStore` in `LaterLogic` and migrated `ViewController`/`AppDelegate` key usage to it.
 - 2026-03-14: Added `SettingsStore` default-value and round-trip persistence tests in both `LaterLogicTests` and `LaterTests`.
 - 2026-03-15: Added `AppFilterService`, migrated app filtering in `ViewController`, and added `AppFilterService` tests in both `LaterLogicTests` and `LaterTests`.
+- 2026-03-16: Added initial `AppViewModel` read-only state in `LaterLogic` with mirrored tests in `LaterLogicTests` and `LaterTests`.

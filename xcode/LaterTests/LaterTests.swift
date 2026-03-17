@@ -280,3 +280,92 @@ struct SettingsStoreTests {
         #expect(reloaded.launchAtLoginEnabled)
     }
 }
+
+@MainActor
+@Suite("AppViewModel")
+struct AppViewModelTests {
+    private func makeStore() -> (SettingsStore, String) {
+        let suiteName = "LaterTests.AppViewModelTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return (SettingsStore(userDefaults: defaults), suiteName)
+    }
+
+    @Test("AppViewModel mirrors read-only settings/session state on init")
+    func mirrorsStateOnInit() {
+        var (store, suiteName) = makeStore()
+        defer { UserDefaults().removePersistentDomain(forName: suiteName) }
+
+        store.hasSession = true
+        store.sessionName = "Safari, Xcode, +1 more"
+        store.sessionDate = "Mar 16, 2026 at 5:10 PM"
+        store.totalSessions = "3"
+        store.savedAppNames = ["Safari", "Xcode", "Notes"]
+        store.ignoreSystemApps = true
+        store.closeAppsOnRestore = true
+        store.keepWindowsOpen = true
+        store.waitBeforeRestore = true
+
+        let viewModel = AppViewModel(
+            settingsStore: store,
+            launchAtLoginEnabled: true,
+            selectedTimerDuration: "30 minutes"
+        )
+
+        #expect(viewModel.hasSession)
+        #expect(viewModel.sessionLabel == "Safari, Xcode, +1 more")
+        #expect(viewModel.sessionDate == "Mar 16, 2026 at 5:10 PM")
+        #expect(viewModel.sessionCount == 3)
+        #expect(viewModel.launchAtLogin)
+        #expect(viewModel.ignoreSystemApps)
+        #expect(viewModel.closeAppsOnRestore)
+        #expect(viewModel.keepWindowsOpen)
+        #expect(viewModel.waitBeforeRestore)
+        #expect(viewModel.selectedTimerDuration == "30 minutes")
+    }
+
+    @Test("Session count falls back to saved app names when totalSessions is invalid")
+    func sessionCountFallback() {
+        var (store, suiteName) = makeStore()
+        defer { UserDefaults().removePersistentDomain(forName: suiteName) }
+
+        store.hasSession = true
+        store.totalSessions = "not-a-number"
+        store.savedAppNames = ["Safari", "Xcode"]
+
+        let viewModel = AppViewModel(settingsStore: store)
+        #expect(viewModel.sessionCount == 2)
+    }
+
+    @Test("Save availability tracks available app count")
+    func saveAvailability() {
+        let (store, suiteName) = makeStore()
+        defer { UserDefaults().removePersistentDomain(forName: suiteName) }
+
+        let viewModel = AppViewModel(settingsStore: store)
+        #expect(!viewModel.isSaveEnabled)
+
+        viewModel.refreshSaveAvailability(trackableAppCount: 3)
+        #expect(viewModel.isSaveEnabled)
+
+        viewModel.refreshSaveAvailability(trackableAppCount: 0)
+        #expect(!viewModel.isSaveEnabled)
+    }
+
+    @Test("Timer visibility requires session, wait toggle, and timer label")
+    func timerVisibilityRules() {
+        var (store, suiteName) = makeStore()
+        defer { UserDefaults().removePersistentDomain(forName: suiteName) }
+
+        store.hasSession = true
+        store.waitBeforeRestore = true
+        let viewModel = AppViewModel(settingsStore: store)
+
+        #expect(!viewModel.isTimerVisible)
+        viewModel.refreshTimerState(label: "Reopening in 00:14:59")
+        #expect(viewModel.isTimerVisible)
+
+        viewModel.refreshTimerState(label: nil)
+        #expect(!viewModel.isTimerVisible)
+    }
+}
