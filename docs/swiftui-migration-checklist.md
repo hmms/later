@@ -105,3 +105,4 @@ Use this sequence to keep architecture changes small, reviewable, and reversible
 - 2026-04-01: Moved session snapshot persistence/clear orchestration from `ViewController` into `AppViewModel` with mirrored state-write tests.
 - 2026-04-01: Moved global hotkey wiring to `AppDelegate`; `ViewController` now forwards shortcut enable/disable and trigger flows.
 - 2026-04-01: Added `AppViewModel` setting action methods and mirrored tests for settings persistence + wait-timer cancellation transitions.
+- 2026-04-01: Extracted restore planning decisions from `ViewController` into `SessionRestorePlanner` in `LaterLogic`, keeping controller logic focused on plan execution.

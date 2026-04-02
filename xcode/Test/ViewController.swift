@@ -582,24 +582,27 @@ class ViewController: NSViewController {
     
     @objc func restoreSessionGlobal() {
         appViewModel.cancelRestoreTimer()
-        
-        // Check if apps are to be terminated as opposed to hiding them
-        if !isUITestStubMode {
-            let action = SessionRules.actionForSavedApp(quitAppsInsteadOfHiding: closeApps.state == .on)
-            if action == .terminate {
-                let runningApps = sessionRuntime.trackableRunningApps(
-                    includeTerminal: false,
-                    includeLater: true,
-                    ignoreSystemApps: ignoreFinder.state == .on
-                )
-                _ = sessionRuntime.applySavedAppAction(.terminate, to: runningApps)
-            }
-        }
-        
-        // Restore apps
+
         let apps = appViewModel.savedSessionApps
         let executables = appViewModel.savedSessionURLs
-        if !apps.isEmpty && apps.count == executables.count {
+
+        let restorePlan = SessionRestorePlanner.makePlan(
+            isUITestStubMode: isUITestStubMode,
+            closeAppsOnRestore: closeApps.state == .on,
+            appNames: apps,
+            appURLs: executables
+        )
+
+        if let preRestoreAction = restorePlan.preRestoreAction {
+            let runningApps = sessionRuntime.trackableRunningApps(
+                includeTerminal: false,
+                includeLater: true,
+                ignoreSystemApps: ignoreFinder.state == .on
+            )
+            _ = sessionRuntime.applySavedAppAction(preRestoreAction, to: runningApps)
+        }
+
+        if restorePlan.shouldRestoreApps {
             if !isUITestStubMode {
                 sessionRuntime.restoreSavedApps(names: apps, urls: executables)
             }

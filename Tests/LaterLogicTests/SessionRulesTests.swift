@@ -271,6 +271,61 @@ struct SessionSnapshotComposerTests {
     }
 }
 
+@Suite("SessionRestorePlanner")
+struct SessionRestorePlannerTests {
+    @Test("Non-stub quit mode plans terminate pre-action")
+    func nonStubQuitModePlansTerminate() {
+        let plan = SessionRestorePlanner.makePlan(
+            isUITestStubMode: false,
+            closeAppsOnRestore: true,
+            appNames: ["Safari"],
+            appURLs: ["file:///Applications/Safari.app"]
+        )
+
+        #expect(plan.preRestoreAction == .terminate)
+        #expect(plan.shouldRestoreApps)
+    }
+
+    @Test("Stub mode skips pre-restore app action")
+    func stubModeSkipsPreRestoreAction() {
+        let plan = SessionRestorePlanner.makePlan(
+            isUITestStubMode: true,
+            closeAppsOnRestore: true,
+            appNames: ["Safari"],
+            appURLs: ["file:///Applications/Safari.app"]
+        )
+
+        #expect(plan.preRestoreAction == nil)
+        #expect(plan.shouldRestoreApps)
+    }
+
+    @Test("Non-stub non-quit mode keeps pre-restore action disabled")
+    func nonStubNonQuitModeKeepsPreRestoreActionDisabled() {
+        let plan = SessionRestorePlanner.makePlan(
+            isUITestStubMode: false,
+            closeAppsOnRestore: false,
+            appNames: ["Safari"],
+            appURLs: ["file:///Applications/Safari.app"]
+        )
+
+        #expect(plan.preRestoreAction == nil)
+        #expect(plan.shouldRestoreApps)
+    }
+
+    @Test("Mismatched restore lists prevent restore execution")
+    func mismatchedRestoreListsPreventRestoreExecution() {
+        let plan = SessionRestorePlanner.makePlan(
+            isUITestStubMode: false,
+            closeAppsOnRestore: false,
+            appNames: ["Safari"],
+            appURLs: []
+        )
+
+        #expect(plan.preRestoreAction == nil)
+        #expect(!plan.shouldRestoreApps)
+    }
+}
+
 @Suite("SettingsStore")
 struct SettingsStoreTests {
     private func makeStore() -> (SettingsStore, UserDefaults, String) {
