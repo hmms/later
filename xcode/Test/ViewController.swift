@@ -46,6 +46,10 @@ class ViewController: NSViewController {
     private var settings = SettingsStore()
     private lazy var appViewModel = AppViewModel(settingsStore: settings)
     private let appFilter = AppFilterService()
+    private lazy var sessionRuntime = SessionRuntimeCoordinator(
+        appFilter: appFilter,
+        currentBundleIdentifier: Bundle.main.bundleIdentifier
+    )
     private var isUITestMode: Bool {
         ProcessInfo.processInfo.arguments.contains("UITEST_MODE")
     }
@@ -250,13 +254,11 @@ class ViewController: NSViewController {
         if isUITestStubMode {
             totalSessions = stubSessionAppsForSave().count
         } else {
-            var runningTotal = 0
-            for runningApplication in NSWorkspace.shared.runningApplications {
-                if shouldTrackApplication(runningApplication, includeTerminal: true, includeLater: false) {
-                    runningTotal += 1
-                }
-            }
-            totalSessions = runningTotal
+            totalSessions = sessionRuntime.trackableRunningApps(
+                includeTerminal: true,
+                includeLater: false,
+                ignoreSystemApps: ignoreFinder.state == .on
+            ).count
         }
 
         if (totalSessions == 0) {
@@ -520,22 +522,23 @@ class ViewController: NSViewController {
                 }
             }
         } else {
-            var trackedApplications = [NSRunningApplication]()
-            for runningApplication in NSWorkspace.shared.runningApplications {
-                if shouldTrackApplication(runningApplication, includeTerminal: true, includeLater: false) {
-                    trackedApplications.append(runningApplication)
-                    if let bundleURL = runningApplication.bundleURL {
-                        appURLs.append(bundleURL.absoluteString)
-                    }
-                    if let localizedName = runningApplication.localizedName {
-                        appNames.append(localizedName)
-                    } else {
-                        appNames.append("")
-                    }
+            let trackedApplications = sessionRuntime.trackableRunningApps(
+                includeTerminal: true,
+                includeLater: false,
+                ignoreSystemApps: ignoreFinder.state == .on
+            )
+            for runningApplication in trackedApplications {
+                if let bundleURL = runningApplication.bundleURL {
+                    appURLs.append(bundleURL.absoluteString)
+                }
+                if let localizedName = runningApplication.localizedName {
+                    appNames.append(localizedName)
+                } else {
+                    appNames.append("")
                 }
             }
             // Apply hide/quit after collection so we don't mutate running apps while iterating.
-            lastStateWasTerminate = applySavedAppAction(action, to: trackedApplications)
+            lastStateWasTerminate = sessionRuntime.applySavedAppAction(action, to: trackedApplications)
         }
 
         let summary = SessionPresentation.summarizeSession(appNames: appNames)
@@ -566,64 +569,6 @@ class ViewController: NSViewController {
         writeUITestStateSnapshot()
     }
     
-    private func appURL(from savedURLString: String) -> URL? {
-        guard let parsedURL = URL(string: savedURLString) else {
-            return nil
-        }
-        if parsedURL.pathExtension == "app" {
-            return parsedURL
-        }
-
-        var candidate = parsedURL
-        while candidate.path != "/" {
-            if candidate.pathExtension == "app" {
-                return candidate
-            }
-            candidate.deleteLastPathComponent()
-        }
-        return nil
-    }
-
-    private func isFinderApp(_ runningApplication: NSRunningApplication) -> Bool {
-        runningApplication.bundleIdentifier == "com.apple.finder"
-    }
-
-    private func applySavedAppAction(_ action: SavedAppAction, to applications: [NSRunningApplication]) -> Bool {
-        switch action {
-        case .hide:
-            for runningApplication in applications {
-                runningApplication.hide()
-            }
-            return false
-        case .terminate:
-            var terminatedAny = false
-            for runningApplication in applications where !isFinderApp(runningApplication) {
-                runningApplication.terminate()
-                terminatedAny = true
-            }
-            return terminatedAny
-        }
-    }
-
-    private func shouldTrackApplication(_ runningApplication: NSRunningApplication, includeTerminal: Bool, includeLater: Bool) -> Bool {
-        let excludedBundleIDs: Set<String> = {
-            guard let currentBundleID = Bundle.main.bundleIdentifier else {
-                return []
-            }
-            return [currentBundleID]
-        }()
-
-        return appFilter.shouldTrack(
-            activationPolicyIsRegular: runningApplication.activationPolicy == .regular,
-            localizedName: runningApplication.localizedName,
-            bundleIdentifier: runningApplication.bundleIdentifier,
-            includeTerminal: includeTerminal,
-            includeLater: includeLater,
-            ignoreSystemApps: ignoreFinder.state == .on,
-            excludedBundleIDs: excludedBundleIDs
-        )
-    }
-
     private func stubSessionAppsForSave() -> [StubSessionApp] {
         uiTestStubApps.filter { app in
             if appFilter.shouldIgnore(
@@ -635,26 +580,6 @@ class ViewController: NSViewController {
             return true
         }
     }
-
-    func activate(name: String, url: String) {
-        guard let app = NSWorkspace.shared.runningApplications.filter ({
-            return $0.localizedName == name
-        }).first else {
-            if let appURL = appURL(from: url) {
-                NSWorkspace.shared.openApplication(
-                    at: appURL,
-                    configuration: NSWorkspace.OpenConfiguration()
-                ) { _, error in
-                    if let error = error {
-                        print("Error opening \(appURL): \(error)")
-                    }
-                }
-            }
-            return
-        }
-
-        app.unhide()
-    }
     
     @objc func restoreSessionGlobal() {
         appViewModel.cancelRestoreTimer()
@@ -663,11 +588,12 @@ class ViewController: NSViewController {
         if !isUITestStubMode {
             let action = SessionRules.actionForSavedApp(quitAppsInsteadOfHiding: closeApps.state == .on)
             if action == .terminate {
-                for runningApplication in NSWorkspace.shared.runningApplications {
-                    if shouldTrackApplication(runningApplication, includeTerminal: false, includeLater: true) {
-                        runningApplication.terminate()
-                    }
-                }
+                let runningApps = sessionRuntime.trackableRunningApps(
+                    includeTerminal: false,
+                    includeLater: true,
+                    ignoreSystemApps: ignoreFinder.state == .on
+                )
+                _ = sessionRuntime.applySavedAppAction(.terminate, to: runningApps)
             }
         }
         
@@ -676,9 +602,7 @@ class ViewController: NSViewController {
         let executables = appViewModel.savedSessionURLs
         if !apps.isEmpty && apps.count == executables.count {
             if !isUITestStubMode {
-                for (index, app) in apps.enumerated() {
-                    activate(name: app, url: executables[index])
-                }
+                sessionRuntime.restoreSavedApps(names: apps, urls: executables)
             }
             noSessions()
         }
@@ -762,4 +686,108 @@ class ViewController: NSViewController {
         return appDelegate
     }
 
+}
+
+final class SessionRuntimeCoordinator {
+    private let appFilter: AppFilterService
+    private let currentBundleIdentifier: String?
+
+    init(appFilter: AppFilterService, currentBundleIdentifier: String?) {
+        self.appFilter = appFilter
+        self.currentBundleIdentifier = currentBundleIdentifier
+    }
+
+    func trackableRunningApps(
+        includeTerminal: Bool,
+        includeLater: Bool,
+        ignoreSystemApps: Bool
+    ) -> [NSRunningApplication] {
+        let excludedBundleIDs: Set<String> = {
+            guard let currentBundleIdentifier else {
+                return []
+            }
+            return [currentBundleIdentifier]
+        }()
+
+        return NSWorkspace.shared.runningApplications.filter { runningApplication in
+            appFilter.shouldTrack(
+                activationPolicyIsRegular: runningApplication.activationPolicy == .regular,
+                localizedName: runningApplication.localizedName,
+                bundleIdentifier: runningApplication.bundleIdentifier,
+                includeTerminal: includeTerminal,
+                includeLater: includeLater,
+                ignoreSystemApps: ignoreSystemApps,
+                excludedBundleIDs: excludedBundleIDs
+            )
+        }
+    }
+
+    func applySavedAppAction(_ action: SavedAppAction, to applications: [NSRunningApplication]) -> Bool {
+        switch action {
+        case .hide:
+            for runningApplication in applications {
+                runningApplication.hide()
+            }
+            return false
+        case .terminate:
+            var terminatedAny = false
+            for runningApplication in applications where !isFinderApp(runningApplication) {
+                runningApplication.terminate()
+                terminatedAny = true
+            }
+            return terminatedAny
+        }
+    }
+
+    func restoreSavedApps(names: [String], urls: [String]) {
+        guard !names.isEmpty, names.count == urls.count else {
+            assertionFailure("restoreSavedApps requires non-empty arrays with matching counts")
+            print("restoreSavedApps ignored invalid input: names=\(names.count), urls=\(urls.count)")
+            return
+        }
+
+        for (index, appName) in names.enumerated() {
+            activateOrLaunch(name: appName, savedURLString: urls[index])
+        }
+    }
+
+    private func activateOrLaunch(name: String, savedURLString: String) {
+        guard let app = NSWorkspace.shared.runningApplications.first(where: { $0.localizedName == name }) else {
+            if let appURL = appURL(from: savedURLString) {
+                NSWorkspace.shared.openApplication(
+                    at: appURL,
+                    configuration: NSWorkspace.OpenConfiguration()
+                ) { _, error in
+                    if let error {
+                        print("Error opening \(appURL): \(error)")
+                    }
+                }
+            }
+            return
+        }
+
+        app.unhide()
+    }
+
+    private func appURL(from savedURLString: String) -> URL? {
+        guard let parsedURL = URL(string: savedURLString) else {
+            return nil
+        }
+        if parsedURL.pathExtension == "app" {
+            return parsedURL
+        }
+
+        var candidate = parsedURL
+        while candidate.path != "/" {
+            if candidate.pathExtension == "app" {
+                return candidate
+            }
+            candidate.deleteLastPathComponent()
+        }
+        return nil
+    }
+
+    private func isFinderApp(_ runningApplication: NSRunningApplication) -> Bool {
+        runningApplication.bundleIdentifier == "com.apple.finder"
+    }
 }
