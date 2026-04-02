@@ -159,43 +159,43 @@ class ViewController: NSViewController {
     }
 
     private func runUITestHooks() {
-        let arguments = ProcessInfo.processInfo.arguments
+        let hooks = UITestHooks(arguments: ProcessInfo.processInfo.arguments)
 
-        if arguments.contains("UITEST_ENABLE_WAIT") {
+        if hooks.enableWait {
             waitCheckbox.state = .on
             appViewModel.setWaitBeforeRestore(true)
         }
 
-        if arguments.contains("UITEST_DISABLE_SHORTCUTS") {
+        if hooks.disableShortcuts {
             appDelegate.setShortcutsDisabled(true)
             checkKey.state = .on
-        } else if arguments.contains("UITEST_ENABLE_SHORTCUTS") {
+        } else if hooks.enableShortcuts {
             appDelegate.setShortcutsDisabled(false)
             checkKey.state = .off
         }
 
-        if arguments.contains("UITEST_TOGGLE_LAUNCH_AT_LOGIN") {
+        if hooks.toggleLaunchAtLogin {
             checkbox.state = checkbox.state == .on ? .off : .on
             startAtLogin(self)
         }
 
-        if arguments.contains("UITEST_TRIGGER_SAVE") {
+        if hooks.triggerSave {
             saveSessionGlobal()
         }
 
-        if arguments.contains("UITEST_TRIGGER_SHORTCUT_SAVE") {
+        if hooks.triggerShortcutSave {
             appDelegate.triggerSaveShortcutForTesting()
         }
 
-        if arguments.contains("UITEST_TRIGGER_SHORTCUT_RESTORE") {
+        if hooks.triggerShortcutRestore {
             appDelegate.triggerRestoreShortcutForTesting()
         }
 
-        if arguments.contains("UITEST_TRIGGER_RESTORE") {
+        if hooks.triggerRestore {
             restoreSessionGlobal()
         }
 
-        if arguments.contains("UITEST_TRIGGER_CANCEL_TIMER") {
+        if hooks.triggerCancelTimer {
             cancelTimeClick(self)
         }
 
@@ -659,20 +659,15 @@ class ViewController: NSViewController {
             return
         }
 
-        let payload: [String: Any] = [
-            "hasSession": appViewModel.hasSession,
-            "savedAppCount": appViewModel.savedSessionApps.count,
-            "timerScheduled": UserDefaults.standard.bool(forKey: "uiTestTimerScheduled"),
-            "globalShortcutsDisabled": appDelegate.shortcutsDisabled,
-            "launchAtLoginEnabled": appViewModel.launchAtLogin,
-        ]
-
-        guard JSONSerialization.isValidJSONObject(payload) else {
-            return
-        }
-
         do {
-            let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+            let snapshot = UITestStateSnapshot(
+                hasSession: appViewModel.hasSession,
+                savedAppCount: appViewModel.savedSessionApps.count,
+                timerScheduled: UserDefaults.standard.bool(forKey: "uiTestTimerScheduled"),
+                globalShortcutsDisabled: appDelegate.shortcutsDisabled,
+                launchAtLoginEnabled: appViewModel.launchAtLogin
+            )
+            let data = try UITestStateEncoder.encode(snapshot)
             try data.write(to: stateFileURL, options: .atomic)
         } catch {
             print("Failed to write UI test snapshot: \(error)")

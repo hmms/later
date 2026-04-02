@@ -335,6 +335,47 @@ struct SessionSavePlannerTests {
     }
 }
 
+@Suite("UITestHarness")
+struct UITestHarnessTests {
+    @Test("Hook parser maps known UITEST arguments")
+    func hookParserMapsKnownFlags() {
+        let hooks = UITestHooks(
+            arguments: [
+                "UITEST_MODE",
+                "UITEST_ENABLE_WAIT",
+                "UITEST_TRIGGER_SAVE",
+                "UITEST_TRIGGER_SHORTCUT_RESTORE",
+            ]
+        )
+
+        #expect(hooks.enableWait)
+        #expect(hooks.triggerSave)
+        #expect(hooks.triggerShortcutRestore)
+        #expect(!hooks.triggerRestore)
+        #expect(!hooks.disableShortcuts)
+    }
+
+    @Test("State encoder emits stable JSON payload keys")
+    func stateEncoderEmitsExpectedKeys() throws {
+        let snapshot = UITestStateSnapshot(
+            hasSession: true,
+            savedAppCount: 3,
+            timerScheduled: true,
+            globalShortcutsDisabled: false,
+            launchAtLoginEnabled: true
+        )
+
+        let data = try UITestStateEncoder.encode(snapshot)
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["hasSession"] as? Bool == true)
+        #expect(object["savedAppCount"] as? Int == 3)
+        #expect(object["timerScheduled"] as? Bool == true)
+        #expect(object["globalShortcutsDisabled"] as? Bool == false)
+        #expect(object["launchAtLoginEnabled"] as? Bool == true)
+    }
+}
+
 @Suite("SessionRestorePlanner")
 struct SessionRestorePlannerTests {
     @Test("Non-stub quit mode plans terminate pre-action")
