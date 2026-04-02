@@ -502,7 +502,7 @@ class ViewController: NSViewController {
     func saveSessionGlobal() {
         var appURLs = [String]()
         var appNames = [String]()
-        var appBundleIDs = [String?]()
+        var lastStateWasTerminate = false
         let action = SessionRules.actionForSavedApp(quitAppsInsteadOfHiding: keepWindowsOpen.state == .on)
 
         if !isUITestStubMode {
@@ -514,7 +514,12 @@ class ViewController: NSViewController {
             for runningApplication in stubSessionAppsForSave() {
                 appURLs.append(runningApplication.bundleURLString)
                 appNames.append(runningApplication.localizedName)
-                appBundleIDs.append(runningApplication.bundleIdentifier)
+                if action == .terminate {
+                    lastStateWasTerminate = lastStateWasTerminate || SessionPresentation.shouldSetLastState(
+                        keepWindowsOpen: false,
+                        bundleIdentifier: runningApplication.bundleIdentifier
+                    )
+                }
             }
         } else {
             let trackedApplications = sessionRuntime.trackableRunningApps(
@@ -531,10 +536,9 @@ class ViewController: NSViewController {
                 } else {
                     appNames.append("")
                 }
-                appBundleIDs.append(runningApplication.bundleIdentifier)
             }
             // Apply hide/quit after collection so we don't mutate running apps while iterating.
-            _ = sessionRuntime.applySavedAppAction(action, to: trackedApplications)
+            lastStateWasTerminate = sessionRuntime.applySavedAppAction(action, to: trackedApplications)
         }
         
         if !isUITestStubMode {
@@ -543,13 +547,12 @@ class ViewController: NSViewController {
         
         let snapshotDraft = SessionSnapshotDraft(
             appURLs: appURLs,
-            appNames: appNames,
-            appBundleIDs: appBundleIDs
+            appNames: appNames
         )
         let snapshot = SessionSnapshotComposer.makeSnapshot(
             draft: snapshotDraft,
-            action: action,
-            sessionDate: currentDateString()
+            sessionDate: currentDateString(),
+            lastStateWasTerminate: lastStateWasTerminate
         )
 
         // Save session data

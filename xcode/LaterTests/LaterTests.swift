@@ -222,14 +222,13 @@ struct SessionSnapshotComposerTests {
                 "file:///Applications/Safari.app",
                 "file:///System/Library/CoreServices/Finder.app",
             ],
-            appNames: ["Safari", "Finder"],
-            appBundleIDs: ["com.apple.Safari", "com.apple.finder"]
+            appNames: ["Safari", "Finder"]
         )
 
         let snapshot = SessionSnapshotComposer.makeSnapshot(
             draft: draft,
-            action: .terminate,
-            sessionDate: "Apr 1, 2026 at 9:00:00 PM"
+            sessionDate: "Apr 1, 2026 at 9:00:00 PM",
+            lastStateWasTerminate: true
         )
 
         #expect(snapshot.sessionName == "Safari, Finder")
@@ -242,35 +241,33 @@ struct SessionSnapshotComposerTests {
     func hideActionKeepsTerminateMarkerFalse() {
         let draft = SessionSnapshotDraft(
             appURLs: ["file:///Applications/Safari.app"],
-            appNames: ["Safari"],
-            appBundleIDs: ["com.apple.Safari"]
+            appNames: ["Safari"]
         )
 
         let snapshot = SessionSnapshotComposer.makeSnapshot(
             draft: draft,
-            action: .hide,
-            sessionDate: "Apr 1, 2026 at 9:00:00 PM"
+            sessionDate: "Apr 1, 2026 at 9:00:00 PM",
+            lastStateWasTerminate: false
         )
 
         #expect(!snapshot.lastStateWasTerminate)
         #expect(snapshot.sessionName == "Safari")
     }
 
-    @Test("Nil bundle IDs do not set terminate marker")
-    func nilBundleIDsDoNotSetTerminateMarker() {
+    @Test("Composer preserves passed terminate marker")
+    func preservesPassedTerminateMarker() {
         let draft = SessionSnapshotDraft(
             appURLs: ["file:///Applications/Unknown.app"],
-            appNames: ["Unknown"],
-            appBundleIDs: [nil]
+            appNames: ["Unknown"]
         )
 
         let snapshot = SessionSnapshotComposer.makeSnapshot(
             draft: draft,
-            action: .terminate,
-            sessionDate: "Apr 1, 2026 at 9:00:00 PM"
+            sessionDate: "Apr 1, 2026 at 9:00:00 PM",
+            lastStateWasTerminate: true
         )
 
-        #expect(!snapshot.lastStateWasTerminate)
+        #expect(snapshot.lastStateWasTerminate)
     }
 }
 
