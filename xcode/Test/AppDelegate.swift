@@ -10,6 +10,51 @@ import SwiftUI
 import HotKey
 import LaterLogic
 
+final class AppLifecycleAdapter {
+    func applyPreSaveEffects(plan: SessionSaveExecutionPlan) {
+        if plan.shouldCaptureScreenshot {
+            captureScreenshot()
+        }
+        if let policy = plan.preSaveActivationPolicy {
+            applyActivationPolicy(policy)
+        }
+    }
+
+    func applyPostSaveEffects(plan: SessionSaveExecutionPlan) {
+        if let policy = plan.postSaveActivationPolicy {
+            applyActivationPolicy(policy)
+        }
+    }
+
+    private func applyActivationPolicy(_ policy: SessionActivationPolicy) {
+        switch policy {
+        case .regular:
+            NSApp.setActivationPolicy(.regular)
+        case .accessory:
+            NSApp.setActivationPolicy(.accessory)
+        }
+    }
+
+    // Capture workspace state for session preview.
+    private func captureScreenshot() {
+        guard let screenshot = CGDisplayCreateImage(CGMainDisplayID()) else {
+            return
+        }
+
+        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let fileURL = documentsURL.appendingPathComponent("screenshot.jpg")
+        let bitmapRep = NSBitmapImageRep(cgImage: screenshot)
+        guard let jpegData = bitmapRep.representation(using: .jpeg, properties: [:]) else {
+            return
+        }
+
+        do {
+            try jpegData.write(to: fileURL, options: .atomic)
+        } catch {
+            print("error: \(error)")
+        }
+    }
+}
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {

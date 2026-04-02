@@ -46,6 +46,7 @@ class ViewController: NSViewController {
     private var settings = SettingsStore()
     private lazy var appViewModel = AppViewModel(settingsStore: settings)
     private let appFilter = AppFilterService()
+    private let lifecycleAdapter = AppLifecycleAdapter()
     private lazy var sessionRuntime = SessionRuntimeCoordinator(
         appFilter: appFilter,
         currentBundleIdentifier: Bundle.main.bundleIdentifier
@@ -427,26 +428,6 @@ class ViewController: NSViewController {
         }
     }
     
-    // Take a screenshot of the workspace to remember how it was like
-    func takeScreenshot() {
-        guard let screenshot = CGDisplayCreateImage(CGMainDisplayID()) else {
-            return
-        }
-
-        let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0] as NSURL
-        let fileUrl = documentsUrl.appendingPathComponent("screenshot.jpg")
-        let bitmapRep = NSBitmapImageRep(cgImage: screenshot)
-        guard let jpegData = bitmapRep.representation(using: NSBitmapImageRep.FileType.jpeg, properties: [:]) else {
-            return
-        }
-
-        do {
-            try jpegData.write(to: fileUrl!, options: .atomic)
-        } catch {
-            print("error: \(error)")
-        }
-    }
-    
     func currentDateString() -> String {
         let currentDateTime = Date()
         let formatter = DateFormatter()
@@ -503,11 +484,8 @@ class ViewController: NSViewController {
         var capturedApps = [SessionCapturedApp]()
         var lastStateWasTerminate = false
         let action = SessionSavePlanner.actionForSave(quitAppsInsteadOfHiding: keepWindowsOpen.state == .on)
-
-        if !isUITestStubMode {
-            takeScreenshot()
-            NSApp.setActivationPolicy(.regular)
-        }
+        let sideEffectsPlan = SessionSaveSideEffectsPlanner.makePlan(isUITestStubMode: isUITestStubMode)
+        lifecycleAdapter.applyPreSaveEffects(plan: sideEffectsPlan)
 
         if isUITestStubMode {
             for runningApplication in stubSessionAppsForSave() {
@@ -542,9 +520,7 @@ class ViewController: NSViewController {
             lastStateWasTerminate = sessionRuntime.applySavedAppAction(action, to: trackedApplications)
         }
         
-        if !isUITestStubMode {
-            NSApp.setActivationPolicy(.accessory)
-        }
+        lifecycleAdapter.applyPostSaveEffects(plan: sideEffectsPlan)
         
         let snapshotDraft = SessionSavePlanner.makeDraft(from: capturedApps)
         let snapshot = SessionSnapshotComposer.makeSnapshot(

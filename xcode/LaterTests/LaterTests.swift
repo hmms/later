@@ -335,6 +335,25 @@ struct SessionSavePlannerTests {
     }
 }
 
+@Suite("SessionSaveSideEffectsPlanner")
+struct SessionSaveSideEffectsPlannerTests {
+    @Test("Live mode captures screenshot and toggles activation policy")
+    func liveModePlan() {
+        let plan = SessionSaveSideEffectsPlanner.makePlan(isUITestStubMode: false)
+        #expect(plan.shouldCaptureScreenshot)
+        #expect(plan.preSaveActivationPolicy == .regular)
+        #expect(plan.postSaveActivationPolicy == .accessory)
+    }
+
+    @Test("Stub mode skips screenshot and activation policy changes")
+    func stubModePlan() {
+        let plan = SessionSaveSideEffectsPlanner.makePlan(isUITestStubMode: true)
+        #expect(!plan.shouldCaptureScreenshot)
+        #expect(plan.preSaveActivationPolicy == nil)
+        #expect(plan.postSaveActivationPolicy == nil)
+    }
+}
+
 @Suite("UITestHarness")
 struct UITestHarnessTests {
     @Test("Hook parser maps known UITEST arguments")
