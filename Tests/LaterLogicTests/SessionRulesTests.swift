@@ -326,6 +326,40 @@ struct SessionRestorePlannerTests {
     }
 }
 
+@Suite("SessionRuntimeCoordinator")
+struct SessionRuntimeCoordinatorTests {
+    @Test("Parses direct app bundle URL")
+    func parsesDirectAppBundleURL() {
+        let url = SessionRuntimeCoordinator.restoredAppURL(
+            from: "file:///Applications/Safari.app"
+        )
+        #expect(url?.path == "/Applications/Safari.app")
+    }
+
+    @Test("Derives app bundle URL from nested executable path")
+    func derivesAppBundleFromNestedPath() {
+        let url = SessionRuntimeCoordinator.restoredAppURL(
+            from: "file:///Applications/Safari.app/Contents/MacOS/Safari"
+        )
+        #expect(url?.path == "/Applications/Safari.app")
+    }
+
+    @Test("Returns nil for non-app paths")
+    func returnsNilForNonAppPaths() {
+        let url = SessionRuntimeCoordinator.restoredAppURL(
+            from: "file:///tmp/not-an-app"
+        )
+        #expect(url == nil)
+    }
+
+    @Test("Finder bundle identifier detection is explicit")
+    func finderDetection() {
+        #expect(SessionRuntimeCoordinator.isFinderApp(bundleIdentifier: "com.apple.finder"))
+        #expect(!SessionRuntimeCoordinator.isFinderApp(bundleIdentifier: "com.apple.Safari"))
+        #expect(!SessionRuntimeCoordinator.isFinderApp(bundleIdentifier: nil))
+    }
+}
+
 @Suite("SettingsStore")
 struct SettingsStoreTests {
     private func makeStore() -> (SettingsStore, UserDefaults, String) {

@@ -61,7 +61,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             showPopover(nil)
             NSApp.activate(ignoringOtherApps: true)
         }
-        settings.ignoreSystemApps = true
         refreshHotKeyRegistration()
     }
 
