@@ -498,15 +498,11 @@ class ViewController: NSViewController {
     }
 
     func saveSessionGlobal() {
-        var array = [String]()
-        var arrayNames = [String]()
-        var sessionName = ""
-        var sessionFull = ""
-        var sessionsAdded = 1
-        var sessionsRemaining = 0
-        var totalSessions = 0
-        var lastState = false;
-        
+        var appURLs = [String]()
+        var appNames = [String]()
+        let action = SessionRules.actionForSavedApp(quitAppsInsteadOfHiding: keepWindowsOpen.state == .on)
+        var lastStateWasTerminate = false
+
         if !isUITestStubMode {
             takeScreenshot()
             NSApp.setActivationPolicy(.regular)
@@ -514,24 +510,14 @@ class ViewController: NSViewController {
 
         if isUITestStubMode {
             for runningApplication in stubSessionAppsForSave() {
-                array.append(runningApplication.bundleURLString)
-                arrayNames.append(runningApplication.localizedName)
-
-                if keepWindowsOpen.state == .on && runningApplication.bundleIdentifier != "com.apple.finder" {
-                    lastState = true
+                appURLs.append(runningApplication.bundleURLString)
+                appNames.append(runningApplication.localizedName)
+                if action == .terminate {
+                    lastStateWasTerminate = lastStateWasTerminate || SessionPresentation.shouldSetLastState(
+                        keepWindowsOpen: false,
+                        bundleIdentifier: runningApplication.bundleIdentifier
+                    )
                 }
-
-                if sessionName == "" {
-                    sessionName = runningApplication.localizedName
-                    sessionFull = runningApplication.localizedName
-                } else if (sessionsAdded <= 3) {
-                    sessionName += ", " + runningApplication.localizedName
-                } else {
-                    sessionsRemaining += 1
-                }
-                sessionFull += ", " + runningApplication.localizedName
-                sessionsAdded += 1
-                totalSessions += 1
             }
         } else {
             var trackedApplications = [NSRunningApplication]()
@@ -539,48 +525,20 @@ class ViewController: NSViewController {
                 if shouldTrackApplication(runningApplication, includeTerminal: true, includeLater: false) {
                     trackedApplications.append(runningApplication)
                     if let bundleURL = runningApplication.bundleURL {
-                        array.append(bundleURL.absoluteString)
+                        appURLs.append(bundleURL.absoluteString)
                     }
                     if let localizedName = runningApplication.localizedName {
-                        arrayNames.append(localizedName)
+                        appNames.append(localizedName)
                     } else {
-                        arrayNames.append("")
+                        appNames.append("")
                     }
-
-                    // Get application names for session label
-                    if let localizedName = runningApplication.localizedName {
-                        if (sessionName == "") {
-                            sessionName = localizedName
-                            sessionFull = localizedName
-                        } else if (sessionsAdded <= 3) {
-                            sessionName += ", " + localizedName
-                        } else {
-                            sessionsRemaining += 1
-                        }
-                        sessionFull += ", " + localizedName
-                    }
-
-                    sessionsAdded += 1
-                    totalSessions += 1
                 }
             }
-
             // Apply hide/quit after collection so we don't mutate running apps while iterating.
-            if keepWindowsOpen.state == .on {
-                for runningApplication in trackedApplications where !isFinderApp(runningApplication) {
-                    runningApplication.terminate()
-                    lastState = true
-                }
-            } else {
-                for runningApplication in trackedApplications {
-                    runningApplication.hide()
-                }
-            }
+            lastStateWasTerminate = applySavedAppAction(action, to: trackedApplications)
         }
-        
-        if (sessionsRemaining > 0) {
-            sessionName += ", +"+String(sessionsRemaining)+" more"
-        }
+
+        let summary = SessionPresentation.summarizeSession(appNames: appNames)
         
         if !isUITestStubMode {
             NSApp.setActivationPolicy(.accessory)
@@ -588,13 +546,13 @@ class ViewController: NSViewController {
         
         // Save session data
         let snapshot = SessionSnapshot(
-            appURLs: array,
-            appNames: arrayNames,
-            sessionName: sessionName,
-            sessionFullName: sessionFull,
-            totalSessions: totalSessions,
+            appURLs: appURLs,
+            appNames: appNames,
+            sessionName: summary.sessionName,
+            sessionFullName: summary.sessionFullName,
+            totalSessions: summary.totalSessions,
             sessionDate: currentDateString(),
-            lastStateWasTerminate: lastState
+            lastStateWasTerminate: lastStateWasTerminate
         )
         appViewModel.saveSessionSnapshot(snapshot)
         updateSession()
@@ -603,7 +561,6 @@ class ViewController: NSViewController {
         }
         
         if !isUITestMode {
-            let appDelegate = NSApp.delegate as! AppDelegate
             appDelegate.closePopover(self)
         }
         writeUITestStateSnapshot()
@@ -627,15 +584,25 @@ class ViewController: NSViewController {
         return nil
     }
 
-    private func shouldIgnoreSystemApplication(_ runningApplication: NSRunningApplication) -> Bool {
-        appFilter.shouldIgnore(
-            bundleID: runningApplication.bundleIdentifier,
-            ignoreSystemApps: ignoreFinder.state == .on
-        )
-    }
-
     private func isFinderApp(_ runningApplication: NSRunningApplication) -> Bool {
         runningApplication.bundleIdentifier == "com.apple.finder"
+    }
+
+    private func applySavedAppAction(_ action: SavedAppAction, to applications: [NSRunningApplication]) -> Bool {
+        switch action {
+        case .hide:
+            for runningApplication in applications {
+                runningApplication.hide()
+            }
+            return false
+        case .terminate:
+            var terminatedAny = false
+            for runningApplication in applications where !isFinderApp(runningApplication) {
+                runningApplication.terminate()
+                terminatedAny = true
+            }
+            return terminatedAny
+        }
     }
 
     private func shouldTrackApplication(_ runningApplication: NSRunningApplication, includeTerminal: Bool, includeLater: Bool) -> Bool {
@@ -693,10 +660,13 @@ class ViewController: NSViewController {
         appViewModel.cancelRestoreTimer()
         
         // Check if apps are to be terminated as opposed to hiding them
-        if (closeApps.state == .on && !isUITestStubMode) {
-            for runningApplication in NSWorkspace.shared.runningApplications {
-                if shouldTrackApplication(runningApplication, includeTerminal: false, includeLater: true) {
-                    runningApplication.terminate()
+        if !isUITestStubMode {
+            let action = SessionRules.actionForSavedApp(quitAppsInsteadOfHiding: closeApps.state == .on)
+            if action == .terminate {
+                for runningApplication in NSWorkspace.shared.runningApplications {
+                    if shouldTrackApplication(runningApplication, includeTerminal: false, includeLater: true) {
+                        runningApplication.terminate()
+                    }
                 }
             }
         }
@@ -717,7 +687,6 @@ class ViewController: NSViewController {
         }
         
         if !isUITestMode {
-            let appDelegate = NSApp.delegate as! AppDelegate
             appDelegate.closePopover(self)
         }
         writeUITestStateSnapshot()
