@@ -110,3 +110,4 @@ Use this sequence to keep architecture changes small, reviewable, and reversible
 - 2026-04-01: Extracted save snapshot drafting/last-state rules into `SessionSavePlanner` in `LaterLogic` and updated `ViewController` save orchestration to use it with mirrored tests.
 - 2026-04-01: Isolated UI-test hook parsing and state snapshot payload encoding into `UITestHarness` in `LaterLogic`; `ViewController` now delegates UITEST argument/payload handling with mirrored tests.
 - 2026-04-01: Moved save-time app lifecycle side-effect decisions to `SessionSaveSideEffectsPlanner` (`LaterLogic`) and execution to `AppLifecycleAdapter`, removing direct activation-policy/screenshot orchestration from `ViewController`.
+- 2026-04-01: Moved launch-at-login side effects behind `LaunchAtLoginAdapter` in `AppDelegate`; `ViewController` no longer directly imports or mutates `LaunchAtLogin`.

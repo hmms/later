@@ -7,7 +7,6 @@
 
 import Cocoa
 import SwiftUI
-import LaunchAtLogin
 import LaterLogic
 
 class ViewController: NSViewController {
@@ -64,10 +63,7 @@ class ViewController: NSViewController {
         ProcessInfo.processInfo.arguments.contains("UITEST_STUB_SESSION")
     }
     private var launchAtLoginEnabled: Bool {
-        if isUITestMode {
-            return settings.launchAtLoginEnabled
-        }
-        return LaunchAtLogin.isEnabled
+        appDelegate.launchAtLoginEnabled(isUITestMode: isUITestMode)
     }
     private struct StubSessionApp {
         let localizedName: String
@@ -395,9 +391,7 @@ class ViewController: NSViewController {
     
     @IBAction func startAtLogin(_ sender: Any) {
         let enabled = checkbox.state == .on
-        if !isUITestMode {
-            LaunchAtLogin.isEnabled = enabled
-        }
+        appDelegate.setLaunchAtLoginEnabled(enabled, isUITestMode: isUITestMode)
         appViewModel.setLaunchAtLogin(enabled)
         writeUITestStateSnapshot()
     }

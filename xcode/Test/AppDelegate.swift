@@ -8,6 +8,7 @@
 import Cocoa
 import SwiftUI
 import HotKey
+import LaunchAtLogin
 import LaterLogic
 
 final class AppLifecycleAdapter {
@@ -56,6 +57,23 @@ final class AppLifecycleAdapter {
     }
 }
 
+final class LaunchAtLoginAdapter {
+    func currentLaunchAtLoginEnabled(isUITestMode: Bool, settingsStore: SettingsStore) -> Bool {
+        if isUITestMode {
+            return settingsStore.launchAtLoginEnabled
+        }
+        return LaunchAtLogin.isEnabled
+    }
+
+    func applyLaunchAtLogin(enabled: Bool, isUITestMode: Bool, settingsStore: inout SettingsStore) {
+        if isUITestMode {
+            settingsStore.launchAtLoginEnabled = enabled
+            return
+        }
+        LaunchAtLogin.isEnabled = enabled
+    }
+}
+
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
 
@@ -65,6 +83,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var settings = SettingsStore()
     private var saveHotKey: HotKey?
     private var restoreHotKey: HotKey?
+    private let launchAtLoginAdapter = LaunchAtLoginAdapter()
     private var saveShortcutHandler: (() -> Void)?
     private var restoreShortcutHandler: (() -> Void)?
     private var isUITestMode: Bool {
@@ -166,6 +185,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func triggerRestoreShortcutForTesting() {
         guard !settings.globalShortcutsDisabled else { return }
         restoreShortcutHandler?()
+    }
+
+    func launchAtLoginEnabled(isUITestMode: Bool) -> Bool {
+        launchAtLoginAdapter.currentLaunchAtLoginEnabled(
+            isUITestMode: isUITestMode,
+            settingsStore: settings
+        )
+    }
+
+    func setLaunchAtLoginEnabled(_ enabled: Bool, isUITestMode: Bool) {
+        launchAtLoginAdapter.applyLaunchAtLogin(
+            enabled: enabled,
+            isUITestMode: isUITestMode,
+            settingsStore: &settings
+        )
     }
 
     private func refreshHotKeyRegistration() {
