@@ -260,7 +260,7 @@
 			packageReferences = (
 				ECF6532427A5A2E2001EFA5D /* XCRemoteSwiftPackageReference "LaunchAtLogin" */,
 				ECF6532827A6F9EA001EFA5D /* XCRemoteSwiftPackageReference "HotKey" */,
-				A6DAE4FC2F517BCA0023FCF8 /* XCLocalSwiftPackageReference "../../later" */,
+				A6DAE4FC2F517BCA0023FCF8 /* XCLocalSwiftPackageReference ".." */,
 			);
 			productRefGroup = EC376240279C641D003144C7 /* Products */;
 			projectDirPath = "";
@@ -706,9 +706,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		A6DAE4FC2F517BCA0023FCF8 /* XCLocalSwiftPackageReference "../../later" */ = {
+		A6DAE4FC2F517BCA0023FCF8 /* XCLocalSwiftPackageReference ".." */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../later;
+			relativePath = ..;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -734,7 +734,7 @@
 /* Begin XCSwiftPackageProductDependency section */
 		A6FF91C42F52B3DD00C575DC /* LaterLogic */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A6DAE4FC2F517BCA0023FCF8 /* XCLocalSwiftPackageReference "../../later" */;
+			package = A6DAE4FC2F517BCA0023FCF8 /* XCLocalSwiftPackageReference ".." */;
 			productName = LaterLogic;
 		};
 		ECF6532527A5A2E2001EFA5D /* LaunchAtLogin */ = {

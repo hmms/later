@@ -8,7 +8,6 @@
 import Cocoa
 import SwiftUI
 import LaunchAtLogin
-import HotKey
 import LaterLogic
 
 class ViewController: NSViewController {
@@ -34,12 +33,7 @@ class ViewController: NSViewController {
     var checkKey = NSMenuItem(title: "Disable all shortcuts", action: #selector(switchKey), keyEquivalent: "")
     
     
-    var timer = Timer()
-    var timerCount = Timer()
-    var restoreDeadline: Date?
-    var restoreWorkItem: DispatchWorkItem?
     let settingsMenu = NSMenu()
-    var count: Double = 0.0
     
     
     @IBOutlet weak var boxHeight: NSLayoutConstraint!
@@ -50,6 +44,7 @@ class ViewController: NSViewController {
     let popoverView = NSPopover()
     
     private var settings = SettingsStore()
+    private lazy var appViewModel = AppViewModel(settingsStore: settings)
     private let appFilter = AppFilterService()
     private var isUITestMode: Bool {
         ProcessInfo.processInfo.arguments.contains("UITEST_MODE")
@@ -92,34 +87,11 @@ class ViewController: NSViewController {
         ),
     ]
     
-    private var closeKey: HotKey? {
-        didSet {
-            guard let closeKey = closeKey else {
-                return
-            }
-
-            closeKey.keyDownHandler = { [weak self] in
-                self!.saveSessionGlobal()
-            }
-        }
-    }
-    
-    private var restoreKey: HotKey? {
-        didSet {
-            guard let restoreKey = restoreKey else {
-                return
-            }
-
-            restoreKey.keyDownHandler = { [weak self] in
-                self!.restoreSessionGlobal()
-            }
-        }
-    }
-    
     var observers = [NSKeyValueObservation]()
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        appViewModel.refreshFromSettings(launchAtLoginEnabled: launchAtLoginEnabled)
         
         if (launchAtLoginEnabled) {
             checkbox.state = .on
@@ -127,43 +99,43 @@ class ViewController: NSViewController {
             checkbox.state = .off
         }
         
-        if (settings.closeAppsOnRestore) {
+        if (appViewModel.closeAppsOnRestore) {
             closeApps.state = .on
         } else {
             closeApps.state = .off
         }
         
-        if (settings.ignoreSystemApps) {
+        if (appViewModel.ignoreSystemApps) {
             ignoreFinder.state = .on
         } else {
             ignoreFinder.state = .off
         }
         
         // Persisted value means "keep windows open" (hide apps). The checkbox label is inverse.
-        if settings.keepWindowsOpen {
+        if appViewModel.keepWindowsOpen {
             keepWindowsOpen.state = .off
         } else {
             keepWindowsOpen.state = .on
         }
         
-        if (settings.waitBeforeRestore) {
+        if (appViewModel.waitBeforeRestore) {
             waitCheckbox.state = .on
         } else {
             waitCheckbox.state = .off
         }
         
-        if (settings.globalShortcutsDisabled) {
+        if appDelegate.shortcutsDisabled {
             checkKey.state = .on
-            closeKey = nil
-            restoreKey = nil
         } else {
             checkKey.state = .off
-            closeKey = HotKey(key: .l, modifiers: [.command, .shift])
-            restoreKey = HotKey(key: .r, modifiers: [.command, .shift])
         }
+        appDelegate.configureShortcutHandlers(
+            onSave: { [weak self] in self?.saveSessionGlobal() },
+            onRestore: { [weak self] in self?.restoreSessionGlobal() }
+        )
         
         
-        if (!settings.hasSession) {
+        if (!appViewModel.hasSession) {
             noSessions()
         } else {
             updateSession()
@@ -187,19 +159,15 @@ class ViewController: NSViewController {
 
         if arguments.contains("UITEST_ENABLE_WAIT") {
             waitCheckbox.state = .on
-            settings.waitBeforeRestore = true
+            appViewModel.setWaitBeforeRestore(true)
         }
 
         if arguments.contains("UITEST_DISABLE_SHORTCUTS") {
-            settings.globalShortcutsDisabled = true
+            appDelegate.setShortcutsDisabled(true)
             checkKey.state = .on
-            closeKey = nil
-            restoreKey = nil
         } else if arguments.contains("UITEST_ENABLE_SHORTCUTS") {
-            settings.globalShortcutsDisabled = false
+            appDelegate.setShortcutsDisabled(false)
             checkKey.state = .off
-            closeKey = HotKey(key: .l, modifiers: [.command, .shift])
-            restoreKey = HotKey(key: .r, modifiers: [.command, .shift])
         }
 
         if arguments.contains("UITEST_TOGGLE_LAUNCH_AT_LOGIN") {
@@ -212,11 +180,11 @@ class ViewController: NSViewController {
         }
 
         if arguments.contains("UITEST_TRIGGER_SHORTCUT_SAVE") {
-            closeKey?.keyDownHandler?()
+            appDelegate.triggerSaveShortcutForTesting()
         }
 
         if arguments.contains("UITEST_TRIGGER_SHORTCUT_RESTORE") {
-            restoreKey?.keyDownHandler?()
+            appDelegate.triggerRestoreShortcutForTesting()
         }
 
         if arguments.contains("UITEST_TRIGGER_RESTORE") {
@@ -258,62 +226,18 @@ class ViewController: NSViewController {
         ]
     }
     
-    @objc func counter() {
-        guard let restoreDeadline else {
-            timerCount.invalidate()
-            return
-        }
-
-        let remainingSeconds = max(0, Int(ceil(restoreDeadline.timeIntervalSinceNow)))
-        hmsFrom(seconds: remainingSeconds) { hours, minutes, seconds in
-            let hours = self.getStringFrom(seconds: hours)
-            let minutes = self.getStringFrom(seconds: minutes)
-            let seconds = self.getStringFrom(seconds: seconds)
-            self.timeLabel.stringValue = "Reopening in "+"\(hours):\(minutes):\(seconds)"
-        }
-
-        if remainingSeconds == 0 {
-            // Ensure restore happens even if the scheduled timer callback is delayed.
-            timer.invalidate()
-            timerCount.invalidate()
-            restoreSessionGlobal()
-        }
-    }
-    
     // Set a timer to restore session
     func waitForSession() {
-        var time: Double = 10
-        if (timeDropdown.titleOfSelectedItem == "15 minutes") {
-            time = 60*15
-        } else if (timeDropdown.titleOfSelectedItem == "30 minutes") {
-            time = 60*30
-        } else if (timeDropdown.titleOfSelectedItem == "1 hour") {
-            time = 60*60
-        } else if (timeDropdown.titleOfSelectedItem == "5 hours") {
-            time = 60*60*5
-        }
-        restoreDeadline = Date().addingTimeInterval(time)
-        count = time
-        hmsFrom(seconds: Int(time)) { hours, minutes, seconds in
-            let hours = self.getStringFrom(seconds: hours)
-            let minutes = self.getStringFrom(seconds: minutes)
-            let seconds = self.getStringFrom(seconds: seconds)
-            self.timeLabel.stringValue = "Reopening in "+"\(hours):\(minutes):\(seconds)"
-        }
-        restoreWorkItem?.cancel()
-        let restoreWork = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            guard let deadline = self.restoreDeadline, deadline.timeIntervalSinceNow <= 0 else { return }
-            self.restoreSessionGlobal()
-        }
-        restoreWorkItem = restoreWork
-        DispatchQueue.main.asyncAfter(deadline: .now() + time, execute: restoreWork)
-
-        timerCount.invalidate()
-        timerCount = Timer(timeInterval: 1.0, target: self, selector: #selector(counter), userInfo: nil, repeats: true)
-        timerCount.tolerance = 0.1
-        RunLoop.main.add(timerCount, forMode: .common)
-        RunLoop.main.add(timerCount, forMode: .eventTracking)
+        let selectedOption = timeDropdown.titleOfSelectedItem ?? "15 minutes"
+        appViewModel.scheduleRestoreTimer(
+            durationOption: selectedOption,
+            onTick: { [weak self] label in
+                self?.timeLabel.stringValue = label
+            },
+            onComplete: { [weak self] in
+                self?.restoreSessionGlobal()
+            }
+        )
 
         if isUITestMode {
             settingsStoreForUITestTimerState(true)
@@ -354,14 +278,10 @@ class ViewController: NSViewController {
     @objc func switchKey() {
         if (checkKey.state == .on) {
             checkKey.state = .off
-            settings.globalShortcutsDisabled = false
-            closeKey = HotKey(key: .l, modifiers: [.command, .shift])
-            restoreKey = HotKey(key: .r, modifiers: [.command, .shift])
+            appDelegate.setShortcutsDisabled(false)
         } else {
             checkKey.state = .on
-            settings.globalShortcutsDisabled = true
-            restoreKey = nil
-            closeKey = nil
+            appDelegate.setShortcutsDisabled(true)
         }
         writeUITestStateSnapshot()
     }
@@ -472,41 +392,36 @@ class ViewController: NSViewController {
     
     @IBAction func startAtLogin(_ sender: Any) {
         let enabled = checkbox.state == .on
-        if isUITestMode {
-            settings.launchAtLoginEnabled = enabled
-            writeUITestStateSnapshot()
-            return
+        if !isUITestMode {
+            LaunchAtLogin.isEnabled = enabled
         }
-        LaunchAtLogin.isEnabled = enabled
+        appViewModel.setLaunchAtLogin(enabled)
+        writeUITestStateSnapshot()
     }
     
     @IBAction func closeAppsCheck(_ sender: Any) {
-        if (closeApps.state == .on) {
-            settings.closeAppsOnRestore = true
-        } else {
-            settings.closeAppsOnRestore = false
-        }
+        appViewModel.setCloseAppsOnRestore(closeApps.state == .on)
     }
     
     
     @IBAction func ignoreSystemWindows(_ sender: Any) {
-        if (ignoreFinder.state == .on) {
-            settings.ignoreSystemApps = true
-        } else {
-            settings.ignoreSystemApps = false
-        }
+        appViewModel.setIgnoreSystemApps(ignoreFinder.state == .on)
     }
     
     @IBAction func keepWindowsOpen(_ sender: Any) {
         // Persisted value keeps legacy meaning: true => keep windows open (hide apps).
-        settings.keepWindowsOpen = (keepWindowsOpen.state == .off)
+        appViewModel.setKeepWindowsOpen(keepWindowsOpen.state == .off)
     }
     
     @IBAction func waitCheckboxChange(_ sender: Any) {
-        if (waitCheckbox.state == .on) {
-            settings.waitBeforeRestore = true
-        } else {
-            settings.waitBeforeRestore = false
+        let enabled = waitCheckbox.state == .on
+        appViewModel.setWaitBeforeRestore(enabled)
+        if !enabled {
+            hideTimer()
+            if isUITestMode {
+                settingsStoreForUITestTimerState(false)
+                writeUITestStateSnapshot()
+            }
         }
     }
     
@@ -530,12 +445,12 @@ class ViewController: NSViewController {
         }
     }
     
-    func getCurrentDate() {
+    func currentDateString() -> String {
         let currentDateTime = Date()
         let formatter = DateFormatter()
         formatter.timeStyle = .medium
         formatter.dateStyle = .medium
-        settings.sessionDate = formatter.string(from: currentDateTime)
+        return formatter.string(from: currentDateTime)
     }
     
     
@@ -558,11 +473,7 @@ class ViewController: NSViewController {
     }
     
     @IBAction func cancelTimeClick(_ sender: Any) {
-        timer.invalidate()
-        timerCount.invalidate()
-        restoreWorkItem?.cancel()
-        restoreWorkItem = nil
-        restoreDeadline = nil
+        appViewModel.cancelRestoreTimer()
         hideTimer()
         if isUITestMode {
             settingsStoreForUITestTimerState(false)
@@ -676,13 +587,16 @@ class ViewController: NSViewController {
         }
         
         // Save session data
-        settings.lastStateWasTerminate = lastState
-        settings.savedAppURLs = array
-        settings.savedAppNames = arrayNames
-        settings.sessionName = sessionName
-        settings.sessionFullName = sessionFull
-        settings.totalSessions = String(totalSessions)
-        getCurrentDate()
+        let snapshot = SessionSnapshot(
+            appURLs: array,
+            appNames: arrayNames,
+            sessionName: sessionName,
+            sessionFullName: sessionFull,
+            totalSessions: totalSessions,
+            sessionDate: currentDateString(),
+            lastStateWasTerminate: lastState
+        )
+        appViewModel.saveSessionSnapshot(snapshot)
         updateSession()
         if (waitCheckbox.state == .on) {
             waitForSession()
@@ -776,11 +690,7 @@ class ViewController: NSViewController {
     }
     
     @objc func restoreSessionGlobal() {
-        timer.invalidate()
-        timerCount.invalidate()
-        restoreWorkItem?.cancel()
-        restoreWorkItem = nil
-        restoreDeadline = nil
+        appViewModel.cancelRestoreTimer()
         
         // Check if apps are to be terminated as opposed to hiding them
         if (closeApps.state == .on && !isUITestStubMode) {
@@ -792,8 +702,8 @@ class ViewController: NSViewController {
         }
         
         // Restore apps
-        let apps = settings.savedAppNames
-        let executables = settings.savedAppURLs
+        let apps = appViewModel.savedSessionApps
+        let executables = appViewModel.savedSessionURLs
         if !apps.isEmpty && apps.count == executables.count {
             if !isUITestStubMode {
                 for (index, app) in apps.enumerated() {
@@ -815,7 +725,7 @@ class ViewController: NSViewController {
     
     // No sessions popover state
     func noSessions() {
-        settings.hasSession = false
+        appViewModel.clearActiveSession()
         boxHeight.constant = 0
         topBoxSpacing.constant = 0
         containerHeight.constant = 290
@@ -825,23 +735,14 @@ class ViewController: NSViewController {
         checkAnyWindows()
     }
     
-    func hmsFrom(seconds: Int, completion: @escaping (_ hours: Int, _ minutes: Int, _ seconds: Int)->()) {
-        completion(seconds / 3600, (seconds % 3600) / 60, (seconds % 3600) % 60)
-    }
-
-    func getStringFrom(seconds: Int) -> String {
-        return seconds < 10 ? "0\(seconds)" : "\(seconds)"
-    }
-    
     // New session or override
     func updateSession() {
-        settings.hasSession = true
-        dateLabel.stringValue = settings.sessionDate
+        dateLabel.stringValue = appViewModel.sessionDate
         dateLabel.lineBreakMode = .byTruncatingTail
-        sessionLabel.stringValue = settings.sessionName
+        sessionLabel.stringValue = appViewModel.sessionLabel
         sessionLabel.lineBreakMode = .byTruncatingTail
-        sessionLabel.toolTip = settings.sessionFullName
-        numberOfSessions.title = settings.totalSessions
+        sessionLabel.toolTip = appViewModel.sessionFullName
+        numberOfSessions.title = String(appViewModel.sessionCount)
         if (waitCheckbox.state == .on) {
             showTimer()
         } else {
@@ -866,11 +767,11 @@ class ViewController: NSViewController {
         }
 
         let payload: [String: Any] = [
-            "hasSession": settings.hasSession,
-            "savedAppCount": settings.savedAppNames.count,
+            "hasSession": appViewModel.hasSession,
+            "savedAppCount": appViewModel.savedSessionApps.count,
             "timerScheduled": UserDefaults.standard.bool(forKey: "uiTestTimerScheduled"),
-            "globalShortcutsDisabled": settings.globalShortcutsDisabled,
-            "launchAtLoginEnabled": settings.launchAtLoginEnabled,
+            "globalShortcutsDisabled": appDelegate.shortcutsDisabled,
+            "launchAtLoginEnabled": appViewModel.launchAtLogin,
         ]
 
         guard JSONSerialization.isValidJSONObject(payload) else {
@@ -885,4 +786,11 @@ class ViewController: NSViewController {
         }
     }
     
+    private var appDelegate: AppDelegate {
+        guard let appDelegate = NSApp.delegate as? AppDelegate else {
+            fatalError("Expected AppDelegate")
+        }
+        return appDelegate
+    }
+
 }

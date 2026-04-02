@@ -176,11 +176,11 @@ Remove the storyboard, `ViewController.swift`, and any remaining dead AppKit cod
 - [x] Restore session reopens hidden/closed apps correctly (not raw binaries)
 - [ ] Ignore system apps option works (on non-English macOS)
 - [x] Close-vs-hide toggle works as labeled
-- [ ] Reopen timer starts, counts down, and fires restore
+- [x] Reopen timer starts, counts down, and fires restore
 - [x] Cancel timer works
-- [x] Launch at login toggle persists across restarts
-- [x] Global hotkeys (⌘⇧L and ⌘⇧R) work when popover is closed
-- [x] Popover opens/closes from menu bar icon
+- [ ] Launch at login toggle persists across restarts
+- [ ] Global hotkeys (⌘⇧L and ⌘⇧R) work when popover is closed
+- [ ] Popover opens/closes from menu bar icon
 - [x] Settings persist after popover close and reopen
 
 ---

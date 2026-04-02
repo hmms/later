@@ -7,6 +7,7 @@
 
 import Cocoa
 import SwiftUI
+import HotKey
 import LaterLogic
 
 
@@ -17,6 +18,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let popoverView = NSPopover()
     var eventMonitor: EventMonitor?
     private var settings = SettingsStore()
+    private var saveHotKey: HotKey?
+    private var restoreHotKey: HotKey?
+    private var saveShortcutHandler: (() -> Void)?
+    private var restoreShortcutHandler: (() -> Void)?
     private var isUITestMode: Bool {
         ProcessInfo.processInfo.arguments.contains("UITEST_MODE")
     }
@@ -57,6 +62,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.activate(ignoringOtherApps: true)
         }
         settings.ignoreSystemApps = true
+        refreshHotKeyRegistration()
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -88,6 +94,52 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func closePopover(_ sender: AnyObject?) {
         popoverView.performClose(sender)
         eventMonitor?.stop()
+    }
+
+    func configureShortcutHandlers(
+        onSave: @escaping () -> Void,
+        onRestore: @escaping () -> Void
+    ) {
+        saveShortcutHandler = onSave
+        restoreShortcutHandler = onRestore
+        refreshHotKeyRegistration()
+    }
+
+    var shortcutsDisabled: Bool {
+        settings.globalShortcutsDisabled
+    }
+
+    func setShortcutsDisabled(_ disabled: Bool) {
+        settings.globalShortcutsDisabled = disabled
+        refreshHotKeyRegistration()
+    }
+
+    func triggerSaveShortcutForTesting() {
+        guard !settings.globalShortcutsDisabled else { return }
+        saveShortcutHandler?()
+    }
+
+    func triggerRestoreShortcutForTesting() {
+        guard !settings.globalShortcutsDisabled else { return }
+        restoreShortcutHandler?()
+    }
+
+    private func refreshHotKeyRegistration() {
+        if settings.globalShortcutsDisabled {
+            saveHotKey = nil
+            restoreHotKey = nil
+            return
+        }
+
+        saveHotKey = HotKey(key: .l, modifiers: [.command, .shift])
+        saveHotKey?.keyDownHandler = { [weak self] in
+            self?.saveShortcutHandler?()
+        }
+
+        restoreHotKey = HotKey(key: .r, modifiers: [.command, .shift])
+        restoreHotKey?.keyDownHandler = { [weak self] in
+            self?.restoreShortcutHandler?()
+        }
     }
     
     

@@ -337,6 +337,56 @@ struct AppViewModelTests {
         #expect(viewModel.sessionCount == 2)
     }
 
+    @Test("Saving snapshot updates view model and settings")
+    func saveSnapshotUpdatesStateAndStore() {
+        let (store, suiteName) = makeStore()
+        defer { UserDefaults().removePersistentDomain(forName: suiteName) }
+
+        let viewModel = AppViewModel(settingsStore: store)
+        let snapshot = SessionSnapshot(
+            appURLs: ["file:///Applications/Safari.app"],
+            appNames: ["Safari"],
+            sessionName: "Safari",
+            sessionFullName: "Safari",
+            totalSessions: 1,
+            sessionDate: "Apr 1, 2026 at 6:00:00 PM",
+            lastStateWasTerminate: true
+        )
+
+        viewModel.saveSessionSnapshot(snapshot)
+
+        #expect(viewModel.hasSession)
+        #expect(viewModel.sessionLabel == "Safari")
+        #expect(viewModel.sessionFullName == "Safari")
+        #expect(viewModel.sessionCount == 1)
+        #expect(viewModel.savedSessionApps == ["Safari"])
+        #expect(viewModel.savedSessionURLs == ["file:///Applications/Safari.app"])
+
+        let reloaded = SettingsStore(userDefaults: UserDefaults(suiteName: suiteName)!)
+        #expect(reloaded.hasSession)
+        #expect(reloaded.sessionName == "Safari")
+        #expect(reloaded.sessionFullName == "Safari")
+        #expect(reloaded.totalSessions == "1")
+        #expect(reloaded.lastStateWasTerminate)
+    }
+
+    @Test("Clearing active session resets session visibility state")
+    func clearActiveSession() {
+        var (store, suiteName) = makeStore()
+        defer { UserDefaults().removePersistentDomain(forName: suiteName) }
+
+        store.hasSession = true
+        store.sessionName = "Safari"
+        let viewModel = AppViewModel(settingsStore: store)
+        #expect(viewModel.hasSession)
+
+        viewModel.clearActiveSession()
+        #expect(!viewModel.hasSession)
+
+        let reloaded = SettingsStore(userDefaults: UserDefaults(suiteName: suiteName)!)
+        #expect(!reloaded.hasSession)
+    }
+
     @Test("Save availability tracks available app count")
     func saveAvailability() {
         let (store, suiteName) = makeStore()
@@ -367,5 +417,103 @@ struct AppViewModelTests {
 
         viewModel.refreshTimerState(label: nil)
         #expect(!viewModel.isTimerVisible)
+    }
+
+    @Test("Scheduling and canceling restore timer updates timer state")
+    func scheduleAndCancelTimer() {
+        var (store, suiteName) = makeStore()
+        defer { UserDefaults().removePersistentDomain(forName: suiteName) }
+
+        store.hasSession = true
+        store.waitBeforeRestore = true
+        let viewModel = AppViewModel(settingsStore: store)
+
+        var observedLabel: String?
+        viewModel.scheduleRestoreTimer(
+            durationOption: "15 minutes",
+            onTick: { observedLabel = $0 },
+            onComplete: {}
+        )
+
+        #expect(viewModel.isTimerVisible)
+        #expect(viewModel.selectedTimerDuration == "15 minutes")
+        #expect(observedLabel != nil)
+
+        viewModel.cancelRestoreTimer()
+        #expect(!viewModel.isTimerVisible)
+        #expect(viewModel.timerLabel == nil)
+    }
+
+    @Test("Restore timer invokes completion callback on expiry")
+    func timerCompletionOnExpiry() async {
+        var (store, suiteName) = makeStore()
+        defer { UserDefaults().removePersistentDomain(forName: suiteName) }
+
+        store.hasSession = true
+        store.waitBeforeRestore = true
+        let viewModel = AppViewModel(settingsStore: store)
+
+        var didComplete = false
+        viewModel.scheduleRestoreTimer(
+            durationOption: "15 minutes",
+            durationOverride: 0.05,
+            onTick: { _ in },
+            onComplete: { didComplete = true }
+        )
+
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        #expect(didComplete)
+        #expect(!viewModel.isTimerVisible)
+        #expect(viewModel.timerLabel == nil)
+    }
+
+    @Test("Setting actions persist values and update published state")
+    func settingActionsPersistAndPublish() {
+        let (store, suiteName) = makeStore()
+        defer { UserDefaults().removePersistentDomain(forName: suiteName) }
+
+        let viewModel = AppViewModel(settingsStore: store, launchAtLoginEnabled: false)
+        viewModel.setLaunchAtLogin(true)
+        viewModel.setIgnoreSystemApps(true)
+        viewModel.setCloseAppsOnRestore(true)
+        viewModel.setKeepWindowsOpen(true)
+        viewModel.setWaitBeforeRestore(true)
+
+        #expect(viewModel.launchAtLogin)
+        #expect(viewModel.ignoreSystemApps)
+        #expect(viewModel.closeAppsOnRestore)
+        #expect(viewModel.keepWindowsOpen)
+        #expect(viewModel.waitBeforeRestore)
+
+        let reloaded = SettingsStore(userDefaults: UserDefaults(suiteName: suiteName)!)
+        #expect(reloaded.launchAtLoginEnabled)
+        #expect(reloaded.ignoreSystemApps)
+        #expect(reloaded.closeAppsOnRestore)
+        #expect(reloaded.keepWindowsOpen)
+        #expect(reloaded.waitBeforeRestore)
+    }
+
+    @Test("Disabling wait-before-restore clears any active timer")
+    func disablingWaitBeforeRestoreCancelsTimer() {
+        var (store, suiteName) = makeStore()
+        defer { UserDefaults().removePersistentDomain(forName: suiteName) }
+
+        store.hasSession = true
+        store.waitBeforeRestore = true
+        let viewModel = AppViewModel(settingsStore: store)
+        viewModel.scheduleRestoreTimer(
+            durationOption: "15 minutes",
+            onTick: { _ in },
+            onComplete: {}
+        )
+        #expect(viewModel.isTimerVisible)
+
+        viewModel.setWaitBeforeRestore(false)
+        #expect(!viewModel.waitBeforeRestore)
+        #expect(!viewModel.isTimerVisible)
+        #expect(viewModel.timerLabel == nil)
+
+        let reloaded = SettingsStore(userDefaults: UserDefaults(suiteName: suiteName)!)
+        #expect(!reloaded.waitBeforeRestore)
     }
 }
