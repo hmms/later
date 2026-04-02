@@ -271,6 +271,70 @@ struct SessionSnapshotComposerTests {
     }
 }
 
+@Suite("SessionSavePlanner")
+struct SessionSavePlannerTests {
+    @Test("Draft keeps app names and only valid URLs")
+    func makeDraftPreservesNamesAndFiltersMissingURLs() {
+        let capturedApps = [
+            SessionCapturedApp(
+                localizedName: "Safari",
+                bundleIdentifier: "com.apple.Safari",
+                bundleURLString: "file:///Applications/Safari.app"
+            ),
+            SessionCapturedApp(
+                localizedName: "Unknown",
+                bundleIdentifier: nil,
+                bundleURLString: nil
+            ),
+        ]
+
+        let draft = SessionSavePlanner.makeDraft(from: capturedApps)
+        #expect(draft.appNames == ["Safari", "Unknown"])
+        #expect(draft.appURLs == ["file:///Applications/Safari.app"])
+    }
+
+    @Test("Terminate action marks last-state for non-Finder apps")
+    func terminateActionSetsLastState() {
+        let capturedApps = [
+            SessionCapturedApp(
+                localizedName: "Finder",
+                bundleIdentifier: "com.apple.finder",
+                bundleURLString: "file:///System/Library/CoreServices/Finder.app"
+            ),
+            SessionCapturedApp(
+                localizedName: "Safari",
+                bundleIdentifier: "com.apple.Safari",
+                bundleURLString: "file:///Applications/Safari.app"
+            ),
+        ]
+
+        #expect(
+            SessionSavePlanner.lastStateWasTerminate(
+                capturedApps: capturedApps,
+                action: .terminate
+            )
+        )
+    }
+
+    @Test("Hide action keeps last-state marker false")
+    func hideActionDoesNotSetLastState() {
+        let capturedApps = [
+            SessionCapturedApp(
+                localizedName: "Safari",
+                bundleIdentifier: "com.apple.Safari",
+                bundleURLString: "file:///Applications/Safari.app"
+            )
+        ]
+
+        #expect(
+            !SessionSavePlanner.lastStateWasTerminate(
+                capturedApps: capturedApps,
+                action: .hide
+            )
+        )
+    }
+}
+
 @Suite("SessionRestorePlanner")
 struct SessionRestorePlannerTests {
     @Test("Non-stub quit mode plans terminate pre-action")

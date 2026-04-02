@@ -500,10 +500,9 @@ class ViewController: NSViewController {
     }
 
     func saveSessionGlobal() {
-        var appURLs = [String]()
-        var appNames = [String]()
+        var capturedApps = [SessionCapturedApp]()
         var lastStateWasTerminate = false
-        let action = SessionRules.actionForSavedApp(quitAppsInsteadOfHiding: keepWindowsOpen.state == .on)
+        let action = SessionSavePlanner.actionForSave(quitAppsInsteadOfHiding: keepWindowsOpen.state == .on)
 
         if !isUITestStubMode {
             takeScreenshot()
@@ -512,15 +511,18 @@ class ViewController: NSViewController {
 
         if isUITestStubMode {
             for runningApplication in stubSessionAppsForSave() {
-                appURLs.append(runningApplication.bundleURLString)
-                appNames.append(runningApplication.localizedName)
-                if action == .terminate {
-                    lastStateWasTerminate = lastStateWasTerminate || SessionPresentation.shouldSetLastState(
-                        keepWindowsOpen: false,
-                        bundleIdentifier: runningApplication.bundleIdentifier
+                capturedApps.append(
+                    SessionCapturedApp(
+                        localizedName: runningApplication.localizedName,
+                        bundleIdentifier: runningApplication.bundleIdentifier,
+                        bundleURLString: runningApplication.bundleURLString
                     )
-                }
+                )
             }
+            lastStateWasTerminate = SessionSavePlanner.lastStateWasTerminate(
+                capturedApps: capturedApps,
+                action: action
+            )
         } else {
             let trackedApplications = sessionRuntime.trackableRunningApps(
                 includeTerminal: true,
@@ -528,14 +530,13 @@ class ViewController: NSViewController {
                 ignoreSystemApps: ignoreFinder.state == .on
             )
             for runningApplication in trackedApplications {
-                if let bundleURL = runningApplication.bundleURL {
-                    appURLs.append(bundleURL.absoluteString)
-                }
-                if let localizedName = runningApplication.localizedName {
-                    appNames.append(localizedName)
-                } else {
-                    appNames.append("")
-                }
+                capturedApps.append(
+                    SessionCapturedApp(
+                        localizedName: runningApplication.localizedName ?? "",
+                        bundleIdentifier: runningApplication.bundleIdentifier,
+                        bundleURLString: runningApplication.bundleURL?.absoluteString
+                    )
+                )
             }
             // Apply hide/quit after collection so we don't mutate running apps while iterating.
             lastStateWasTerminate = sessionRuntime.applySavedAppAction(action, to: trackedApplications)
@@ -545,10 +546,7 @@ class ViewController: NSViewController {
             NSApp.setActivationPolicy(.accessory)
         }
         
-        let snapshotDraft = SessionSnapshotDraft(
-            appURLs: appURLs,
-            appNames: appNames
-        )
+        let snapshotDraft = SessionSavePlanner.makeDraft(from: capturedApps)
         let snapshot = SessionSnapshotComposer.makeSnapshot(
             draft: snapshotDraft,
             sessionDate: currentDateString(),
