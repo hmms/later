@@ -213,6 +213,67 @@ struct AppFilterServiceTests {
     }
 }
 
+@Suite("SessionSnapshotComposer")
+struct SessionSnapshotComposerTests {
+    @Test("Composes session snapshot summary and terminate marker")
+    func composesSnapshotForTerminateAction() {
+        let draft = SessionSnapshotDraft(
+            appURLs: [
+                "file:///Applications/Safari.app",
+                "file:///System/Library/CoreServices/Finder.app",
+            ],
+            appNames: ["Safari", "Finder"],
+            appBundleIDs: ["com.apple.Safari", "com.apple.finder"]
+        )
+
+        let snapshot = SessionSnapshotComposer.makeSnapshot(
+            draft: draft,
+            action: .terminate,
+            sessionDate: "Apr 1, 2026 at 9:00:00 PM"
+        )
+
+        #expect(snapshot.sessionName == "Safari, Finder")
+        #expect(snapshot.sessionFullName == "Safari, Finder")
+        #expect(snapshot.totalSessions == 2)
+        #expect(snapshot.lastStateWasTerminate)
+    }
+
+    @Test("Hide action keeps last-state terminate marker false")
+    func hideActionKeepsTerminateMarkerFalse() {
+        let draft = SessionSnapshotDraft(
+            appURLs: ["file:///Applications/Safari.app"],
+            appNames: ["Safari"],
+            appBundleIDs: ["com.apple.Safari"]
+        )
+
+        let snapshot = SessionSnapshotComposer.makeSnapshot(
+            draft: draft,
+            action: .hide,
+            sessionDate: "Apr 1, 2026 at 9:00:00 PM"
+        )
+
+        #expect(!snapshot.lastStateWasTerminate)
+        #expect(snapshot.sessionName == "Safari")
+    }
+
+    @Test("Nil bundle IDs do not set terminate marker")
+    func nilBundleIDsDoNotSetTerminateMarker() {
+        let draft = SessionSnapshotDraft(
+            appURLs: ["file:///Applications/Unknown.app"],
+            appNames: ["Unknown"],
+            appBundleIDs: [nil]
+        )
+
+        let snapshot = SessionSnapshotComposer.makeSnapshot(
+            draft: draft,
+            action: .terminate,
+            sessionDate: "Apr 1, 2026 at 9:00:00 PM"
+        )
+
+        #expect(!snapshot.lastStateWasTerminate)
+    }
+}
+
 @Suite("SettingsStore")
 struct SettingsStoreTests {
     private func makeStore() -> (SettingsStore, UserDefaults, String) {

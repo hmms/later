@@ -502,8 +502,8 @@ class ViewController: NSViewController {
     func saveSessionGlobal() {
         var appURLs = [String]()
         var appNames = [String]()
+        var appBundleIDs = [String?]()
         let action = SessionRules.actionForSavedApp(quitAppsInsteadOfHiding: keepWindowsOpen.state == .on)
-        var lastStateWasTerminate = false
 
         if !isUITestStubMode {
             takeScreenshot()
@@ -514,12 +514,7 @@ class ViewController: NSViewController {
             for runningApplication in stubSessionAppsForSave() {
                 appURLs.append(runningApplication.bundleURLString)
                 appNames.append(runningApplication.localizedName)
-                if action == .terminate {
-                    lastStateWasTerminate = lastStateWasTerminate || SessionPresentation.shouldSetLastState(
-                        keepWindowsOpen: false,
-                        bundleIdentifier: runningApplication.bundleIdentifier
-                    )
-                }
+                appBundleIDs.append(runningApplication.bundleIdentifier)
             }
         } else {
             let trackedApplications = sessionRuntime.trackableRunningApps(
@@ -536,27 +531,28 @@ class ViewController: NSViewController {
                 } else {
                     appNames.append("")
                 }
+                appBundleIDs.append(runningApplication.bundleIdentifier)
             }
             // Apply hide/quit after collection so we don't mutate running apps while iterating.
-            lastStateWasTerminate = sessionRuntime.applySavedAppAction(action, to: trackedApplications)
+            _ = sessionRuntime.applySavedAppAction(action, to: trackedApplications)
         }
-
-        let summary = SessionPresentation.summarizeSession(appNames: appNames)
         
         if !isUITestStubMode {
             NSApp.setActivationPolicy(.accessory)
         }
         
-        // Save session data
-        let snapshot = SessionSnapshot(
+        let snapshotDraft = SessionSnapshotDraft(
             appURLs: appURLs,
             appNames: appNames,
-            sessionName: summary.sessionName,
-            sessionFullName: summary.sessionFullName,
-            totalSessions: summary.totalSessions,
-            sessionDate: currentDateString(),
-            lastStateWasTerminate: lastStateWasTerminate
+            appBundleIDs: appBundleIDs
         )
+        let snapshot = SessionSnapshotComposer.makeSnapshot(
+            draft: snapshotDraft,
+            action: action,
+            sessionDate: currentDateString()
+        )
+
+        // Save session data
         appViewModel.saveSessionSnapshot(snapshot)
         updateSession()
         if (waitCheckbox.state == .on) {
