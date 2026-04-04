@@ -119,6 +119,15 @@ final class LaterUITests: XCTestCase {
     }
 
     @MainActor
+    func testCanLaunchSwiftUIPopoverPath() throws {
+        let app = launchApp(extraArguments: ["USE_SWIFTUI_POPOVER"])
+
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
+        XCTAssertTrue(app.staticTexts["mainPopoverTitle"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["saveSessionButton"].exists)
+    }
+
+    @MainActor
     func testSaveAndRestoreSessionInStubMode() throws {
         let app = launchApp(
             stubSession: true,

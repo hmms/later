@@ -89,9 +89,11 @@ struct MainPopoverView: View {
             Text("Later")
                 .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(.white)
+                .accessibilityIdentifier("mainPopoverTitle")
             Text(state.appVersion)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.65))
+                .accessibilityIdentifier("mainPopoverVersion")
             Spacer()
             Button(action: onOpenSettings) {
                 Image(systemName: "gearshape.fill")
@@ -99,6 +101,7 @@ struct MainPopoverView: View {
                     .foregroundStyle(Color.white.opacity(0.75))
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("openSettingsButton")
         }
     }
 
@@ -152,15 +155,18 @@ struct MainPopoverView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("restoreSessionButton")
 
                 if let timerLabel = state.timerLabel {
                     HStack(spacing: 10) {
                         Text(timerLabel)
                             .font(.system(size: 13, weight: .medium, design: .monospaced))
                             .foregroundStyle(Color.white.opacity(0.7))
+                            .accessibilityIdentifier("reopenTimerLabel")
                         Button("Cancel", action: onCancelTimer)
                             .buttonStyle(.plain)
                             .foregroundStyle(Color(red: 0.22, green: 0.55, blue: 1.0))
+                            .accessibilityIdentifier("cancelRestoreTimerButton")
                     }
                 }
             }
@@ -237,5 +243,6 @@ struct MainPopoverView: View {
         .buttonStyle(.plain)
         .disabled(!state.isSaveEnabled)
         .opacity(state.isSaveEnabled ? 1 : 0.6)
+        .accessibilityIdentifier("saveSessionButton")
     }
 }

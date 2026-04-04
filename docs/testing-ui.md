@@ -49,6 +49,8 @@ Additional launch path toggle in `AppDelegate`:
 
 You can also enable the same path with environment variable `LATER_USE_SWIFTUI_POPOVER=1` for local/manual validation without changing the default storyboard path.
 
+Current smoke coverage also includes a gated SwiftUI-host launch path check using `USE_SWIFTUI_POPOVER`.
+
 ## Snapshot schema
 
 `ViewController.writeUITestStateSnapshot()` currently emits:
