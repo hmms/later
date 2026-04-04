@@ -194,11 +194,7 @@ class ViewController: NSViewController {
             }
         )
         renderTimerVisibility()
-
-        if isUITestMode {
-            UITestStateStore.setTimerScheduled(true)
-            writeUITestStateSnapshot()
-        }
+        updateUITestTimerScheduled(true, writeSnapshot: true)
     }
     
     func checkAnyWindows() {
@@ -490,11 +486,27 @@ class ViewController: NSViewController {
     private func handleRestoreTimerCancelled(writeSnapshot: Bool) {
         appViewModel.cancelRestoreTimer()
         renderTimerVisibility()
-        if isUITestMode {
-            UITestStateStore.setTimerScheduled(false)
-            if writeSnapshot {
-                writeUITestStateSnapshot()
-            }
+        updateUITestTimerScheduled(false, writeSnapshot: writeSnapshot)
+    }
+
+    private func updateUITestTimerScheduled(_ scheduled: Bool, writeSnapshot: Bool) {
+        guard isUITestMode else {
+            return
+        }
+        UITestStateStore.setTimerScheduled(scheduled)
+        if writeSnapshot {
+            writeUITestStateSnapshot()
+        }
+    }
+
+    private func finishControllerAction() {
+        closePopoverIfNeeded()
+        writeUITestStateSnapshot()
+    }
+
+    private func closePopoverIfNeeded() {
+        if !isUITestMode {
+            appDelegate.closePopover(self)
         }
     }
 
@@ -555,11 +567,7 @@ class ViewController: NSViewController {
         if appViewModel.waitBeforeRestore {
             waitForSession()
         }
-        
-        if !isUITestMode {
-            appDelegate.closePopover(self)
-        }
-        writeUITestStateSnapshot()
+        finishControllerAction()
     }
     
     private func stubSessionAppsForSave() -> [StubSessionApp] {
@@ -604,10 +612,7 @@ class ViewController: NSViewController {
             }
             noSessions()
         }
-        if !isUITestMode {
-            appDelegate.closePopover(self)
-        }
-        writeUITestStateSnapshot()
+        finishControllerAction()
     }
     
     // No sessions popover state

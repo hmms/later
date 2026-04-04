@@ -117,3 +117,4 @@ Use this sequence to keep architecture changes small, reviewable, and reversible
 - 2026-04-03: Centralized settings-control rendering in `ViewController`, replacing repeated checkbox/menu-item sync logic with adapter render helpers driven by model/app state.
 - 2026-04-03: Switched timer-area rendering and cancellation flows in `ViewController` to use `AppViewModel` timer state, consolidating repeated UITest timer cleanup paths.
 - 2026-04-03: Centralized empty-session vs saved-session rendering behind a single `renderSessionState()` path, reducing duplicated presentation/layout logic in `viewDidLoad`, `updateSession`, and `noSessions`.
+- 2026-04-03: Consolidated `ViewController` popover-closing and UITest snapshot/timer-state writes behind small adapter helpers, removing repeated controller cleanup code from save/restore/timer flows.
