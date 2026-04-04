@@ -32,7 +32,7 @@ This checklist operationalizes [swiftui-migration-plan_v2.md](./swiftui-migratio
 
 ## Phase 2: SwiftUI Host
 - [/] Build `MainPopoverView` in SwiftUI with parity layout sections.
-- [ ] Host SwiftUI view with `NSHostingController` in `AppDelegate`.
+- [/] Host SwiftUI view with `NSHostingController` in `AppDelegate`.
 - [ ] Keep existing `NSStatusItem` + `NSPopover` lifecycle unchanged.
 - [ ] Validate popover sizing behavior for timer visibility transitions.
 - [ ] Validate popover background appearance with SwiftUI content.
@@ -128,3 +128,4 @@ Use this sequence to keep architecture changes small, reviewable, and reversible
 - 2026-04-03: Moved UITest snapshot file persistence into `LaterLogic.UITestStateWriter` with mirrored file-write tests, leaving `ViewController` responsible only for assembling current UI-test state.
 - 2026-04-03: Extracted UITest snapshot composition into `LaterLogic.UITestStateSnapshotComposer` with mirrored tests, leaving `ViewController` to forward current state values instead of building snapshot structs inline.
 - 2026-04-03: Started Phase 2 with a buildable `MainPopoverView` scaffold in the app target and added `AppViewModel.mainPopoverSnapshot` so the SwiftUI surface can consume real model-derived popover state without changing the current storyboard/AppKit launch path.
+- 2026-04-03: Added a dormant `NSHostingController` builder in `AppDelegate` that composes `MainPopoverView` from real `AppViewModel` state and bundle version text, while deliberately leaving `runApp()` on the storyboard path until SwiftUI parity is ready.

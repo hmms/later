@@ -112,6 +112,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         eventMonitor?.start()
     }
 
+    // Phase 2 seam: keep launch behavior on the storyboard controller until SwiftUI parity is verified.
+    @MainActor
+    private func makeSwiftUIPopoverContentViewController() -> NSViewController {
+        let viewModel = AppViewModel(
+            settingsStore: settings,
+            launchAtLoginEnabled: launchAtLoginEnabled(isUITestMode: isUITestMode)
+        )
+        let state = MainPopoverViewState(
+            snapshot: viewModel.mainPopoverSnapshot,
+            appVersion: currentAppVersionText()
+        )
+        let hostingController = NSHostingController(rootView: MainPopoverView(state: state))
+        hostingController.view.frame = NSRect(x: 0, y: 0, width: 340, height: 520)
+        return hostingController
+    }
+
+    private func currentAppVersionText() -> String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        return version.map { "v\($0)" } ?? "Later"
+    }
+
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         if isUITestMode && shouldResetUITestDefaults, let bundleID = Bundle.main.bundleIdentifier {
