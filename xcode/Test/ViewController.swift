@@ -682,8 +682,7 @@ class ViewController: NSViewController {
                 globalShortcutsDisabled: appDelegate.shortcutsDisabled,
                 launchAtLoginEnabled: appViewModel.launchAtLogin
             )
-            let data = try UITestStateEncoder.encode(snapshot)
-            try data.write(to: stateFileURL, options: .atomic)
+            try UITestStateWriter.write(snapshot, to: stateFileURL)
         } catch {
             print("Failed to write UI test snapshot: \(error)")
         }

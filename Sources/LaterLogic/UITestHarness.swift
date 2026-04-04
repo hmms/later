@@ -114,6 +114,13 @@ public enum UITestStateEncoder {
     }
 }
 
+public enum UITestStateWriter {
+    public static func write(_ snapshot: UITestStateSnapshot, to url: URL) throws {
+        let data = try UITestStateEncoder.encode(snapshot)
+        try data.write(to: url, options: .atomic)
+    }
+}
+
 public enum UITestStateStore {
     private static let timerScheduledKey = "uiTestTimerScheduled"
 

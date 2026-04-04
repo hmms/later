@@ -427,6 +427,33 @@ struct UITestHarnessTests {
         #expect(object["launchAtLoginEnabled"] as? Bool == true)
     }
 
+    @Test("State writer persists snapshot JSON to disk")
+    func stateWriterPersistsSnapshot() throws {
+        let snapshot = UITestStateSnapshot(
+            hasSession: true,
+            savedAppCount: 2,
+            timerScheduled: false,
+            globalShortcutsDisabled: true,
+            launchAtLoginEnabled: false
+        )
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("uitest-state-\(UUID().uuidString).json")
+        defer {
+            try? FileManager.default.removeItem(at: url)
+        }
+
+        try UITestStateWriter.write(snapshot, to: url)
+
+        let data = try Data(contentsOf: url)
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["hasSession"] as? Bool == true)
+        #expect(object["savedAppCount"] as? Int == 2)
+        #expect(object["timerScheduled"] as? Bool == false)
+        #expect(object["globalShortcutsDisabled"] as? Bool == true)
+        #expect(object["launchAtLoginEnabled"] as? Bool == false)
+    }
+
     @Test("State store round-trips timer scheduled flag")
     func stateStoreRoundTripTimerFlag() {
         let suiteName = "UITestStateStoreTests.\(UUID().uuidString)"
