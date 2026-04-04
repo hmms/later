@@ -116,8 +116,7 @@ class ViewController: NSViewController {
         let hooks = UITestHooks(arguments: ProcessInfo.processInfo.arguments)
 
         if hooks.enableWait {
-            appViewModel.setWaitBeforeRestore(true)
-            renderSettingsControls()
+            applyWaitBeforeRestore(true)
         }
 
         if hooks.disableShortcuts {
@@ -224,7 +223,6 @@ class ViewController: NSViewController {
     
     @objc func switchKey() {
         applyShortcutsDisabled(!appDelegate.shortcutsDisabled)
-        writeUITestStateSnapshot()
     }
     
     // Options menu
@@ -337,25 +335,21 @@ class ViewController: NSViewController {
     }
     
     @IBAction func closeAppsCheck(_ sender: Any) {
-        appViewModel.setCloseAppsOnRestore(closeApps.state == .on)
+        applyCloseAppsOnRestore(closeApps.state == .on)
     }
     
     
     @IBAction func ignoreSystemWindows(_ sender: Any) {
-        appViewModel.setIgnoreSystemApps(ignoreFinder.state == .on)
+        applyIgnoreSystemApps(ignoreFinder.state == .on)
     }
     
     @IBAction func keepWindowsOpen(_ sender: Any) {
         // Persisted value keeps legacy meaning: true => keep windows open (hide apps).
-        appViewModel.setKeepWindowsOpen(keepWindowsOpen.state == .off)
+        applyKeepWindowsOpen(keepWindowsOpen.state == .off)
     }
     
     @IBAction func waitCheckboxChange(_ sender: Any) {
-        let enabled = waitCheckbox.state == .on
-        appViewModel.setWaitBeforeRestore(enabled)
-        if !enabled {
-            handleRestoreTimerCancelled(writeSnapshot: true)
-        }
+        applyWaitBeforeRestore(waitCheckbox.state == .on)
     }
 
     private func renderSettingsControls() {
@@ -387,9 +381,38 @@ class ViewController: NSViewController {
         writeUITestStateSnapshot()
     }
 
+    private func applyCloseAppsOnRestore(_ enabled: Bool) {
+        appViewModel.setCloseAppsOnRestore(enabled)
+        renderSettingsControls()
+        writeUITestStateSnapshot()
+    }
+
+    private func applyIgnoreSystemApps(_ enabled: Bool) {
+        appViewModel.setIgnoreSystemApps(enabled)
+        renderSettingsControls()
+        writeUITestStateSnapshot()
+    }
+
+    private func applyKeepWindowsOpen(_ enabled: Bool) {
+        appViewModel.setKeepWindowsOpen(enabled)
+        renderSettingsControls()
+        writeUITestStateSnapshot()
+    }
+
+    private func applyWaitBeforeRestore(_ enabled: Bool) {
+        appViewModel.setWaitBeforeRestore(enabled)
+        renderSettingsControls()
+        renderTimerVisibility()
+        if !enabled {
+            updateUITestTimerScheduled(false, writeSnapshot: false)
+        }
+        writeUITestStateSnapshot()
+    }
+
     private func applyShortcutsDisabled(_ disabled: Bool) {
         appDelegate.setShortcutsDisabled(disabled)
-        renderShortcutsMenuItem()
+        renderSettingsControls()
+        writeUITestStateSnapshot()
     }
     
     func currentDateString() -> String {
