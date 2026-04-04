@@ -467,22 +467,6 @@ class ViewController: NSViewController {
     @IBAction func cancelTimeClick(_ sender: Any) {
         handleRestoreTimerCancelled(writeSnapshot: true)
     }
-    
-    func hideTimer() {
-        timeWrapperHeight.constant = 0
-        boxHeight.constant = 206
-        timeWrapper.isHidden = true
-        currentView.needsLayout = true
-        currentView.updateConstraints()
-    }
-    
-    func showTimer() {
-        timeWrapperHeight.constant = 40
-        boxHeight.constant = 226
-        timeWrapper.isHidden = false
-        currentView.needsLayout = true
-        currentView.updateConstraints()
-    }
 
     private func renderSessionState() {
         if appViewModel.hasSession {
@@ -509,24 +493,44 @@ class ViewController: NSViewController {
         sessionLabel.lineBreakMode = .byTruncatingTail
         sessionLabel.toolTip = appViewModel.sessionFullName
         numberOfSessions.title = String(appViewModel.sessionCount)
+        renderSavedSessionLayout()
         renderTimerVisibility()
-        topBoxSpacing.constant = 16
-        containerHeight.constant = 520
     }
 
     private func renderNoSessionState() {
-        boxHeight.constant = 0
-        topBoxSpacing.constant = 0
-        containerHeight.constant = 290
+        renderEmptySessionLayout()
     }
 
     private func renderTimerVisibility() {
         timeLabel.stringValue = appViewModel.timerLabel ?? ""
-        if appViewModel.isTimerVisible {
-            showTimer()
+        applyTimerLayout(isVisible: appViewModel.isTimerVisible)
+    }
+
+    private func renderSavedSessionLayout() {
+        topBoxSpacing.constant = 16
+        containerHeight.constant = 520
+    }
+
+    private func renderEmptySessionLayout() {
+        boxHeight.constant = 0
+        topBoxSpacing.constant = 0
+        containerHeight.constant = 290
+        timeWrapperHeight.constant = 0
+        timeWrapper.isHidden = true
+    }
+
+    private func applyTimerLayout(isVisible: Bool) {
+        if isVisible {
+            timeWrapperHeight.constant = 40
+            boxHeight.constant = 226
+            timeWrapper.isHidden = false
         } else {
-            hideTimer()
+            timeWrapperHeight.constant = 0
+            boxHeight.constant = 206
+            timeWrapper.isHidden = true
         }
+        currentView.needsLayout = true
+        currentView.updateConstraints()
     }
 
     private func handleRestoreTimerCancelled(writeSnapshot: Bool) {

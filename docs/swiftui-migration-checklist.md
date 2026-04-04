@@ -122,3 +122,4 @@ Use this sequence to keep architecture changes small, reviewable, and reversible
 - 2026-04-03: Centralized settings checkbox/menu mutations behind `ViewController` adapter helpers so settings changes now follow one render + UITest snapshot path.
 - 2026-04-03: Routed timer-duration dropdown selection through `AppViewModel.selectedTimerDuration`, so `ViewController` now renders the dropdown from model state and restore scheduling no longer reads the control directly.
 - 2026-04-03: Routed settings checkbox/menu mutations through dedicated `ViewController` adapter helpers so launch/login, shortcuts, close/hide, ignore-system, keep-open, and wait toggles now share a consistent render-and-snapshot path.
+- 2026-04-03: Consolidated session/timer layout rendering in `ViewController`, replacing duplicate timer show/hide helpers with a single timer layout path and explicit empty-session/saved-session layout helpers.
