@@ -112,3 +112,4 @@ Use this sequence to keep architecture changes small, reviewable, and reversible
 - 2026-04-01: Moved save-time app lifecycle side-effect decisions to `SessionSaveSideEffectsPlanner` (`LaterLogic`) and execution to `AppLifecycleAdapter`, removing direct activation-policy/screenshot orchestration from `ViewController`.
 - 2026-04-01: Moved launch-at-login side effects behind `LaunchAtLoginAdapter` in `AppDelegate`; `ViewController` no longer directly imports or mutates `LaunchAtLogin`.
 - 2026-04-03: Isolated UI-test timer scheduled state writes/reads behind `UITestStateStore` in `LaterLogic`; `ViewController` no longer uses raw `UserDefaults` timer keys directly.
+- 2026-04-03: Switched `ViewController` save/restore/filter/timer decision reads to `AppViewModel` state (instead of direct control-state reads), tightening adapter-only boundaries while preserving behavior.

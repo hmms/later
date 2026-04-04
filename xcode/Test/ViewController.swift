@@ -247,6 +247,7 @@ class ViewController: NSViewController {
     }
     
     func checkAnyWindows() {
+        let ignoreSystemApps = appViewModel.ignoreSystemApps
         let totalSessions: Int
         if isUITestStubMode {
             totalSessions = stubSessionAppsForSave().count
@@ -254,7 +255,7 @@ class ViewController: NSViewController {
             totalSessions = sessionRuntime.trackableRunningApps(
                 includeTerminal: true,
                 includeLater: false,
-                ignoreSystemApps: ignoreFinder.state == .on
+                ignoreSystemApps: ignoreSystemApps
             ).count
         }
 
@@ -475,9 +476,11 @@ class ViewController: NSViewController {
     }
 
     func saveSessionGlobal() {
+        let ignoreSystemApps = appViewModel.ignoreSystemApps
         var capturedApps = [SessionCapturedApp]()
         var lastStateWasTerminate = false
-        let action = SessionSavePlanner.actionForSave(quitAppsInsteadOfHiding: keepWindowsOpen.state == .on)
+        // keepWindowsOpen=true means hide apps; quitAppsInsteadOfHiding uses inverse semantics.
+        let action = SessionSavePlanner.actionForSave(quitAppsInsteadOfHiding: !appViewModel.keepWindowsOpen)
         let sideEffectsPlan = SessionSaveSideEffectsPlanner.makePlan(isUITestStubMode: isUITestStubMode)
         lifecycleAdapter.applyPreSaveEffects(plan: sideEffectsPlan)
 
@@ -499,7 +502,7 @@ class ViewController: NSViewController {
             let trackedApplications = sessionRuntime.trackableRunningApps(
                 includeTerminal: true,
                 includeLater: false,
-                ignoreSystemApps: ignoreFinder.state == .on
+                ignoreSystemApps: ignoreSystemApps
             )
             for runningApplication in trackedApplications {
                 capturedApps.append(
@@ -526,7 +529,7 @@ class ViewController: NSViewController {
         // Save session data
         appViewModel.saveSessionSnapshot(snapshot)
         updateSession()
-        if (waitCheckbox.state == .on) {
+        if appViewModel.waitBeforeRestore {
             waitForSession()
         }
         
@@ -537,10 +540,11 @@ class ViewController: NSViewController {
     }
     
     private func stubSessionAppsForSave() -> [StubSessionApp] {
-        uiTestStubApps.filter { app in
+        let ignoreSystemApps = appViewModel.ignoreSystemApps
+        return uiTestStubApps.filter { app in
             if appFilter.shouldIgnore(
                 bundleID: app.bundleIdentifier,
-                ignoreSystemApps: ignoreFinder.state == .on
+                ignoreSystemApps: ignoreSystemApps
             ) {
                 return false
             }
@@ -549,6 +553,7 @@ class ViewController: NSViewController {
     }
     
     @objc func restoreSessionGlobal() {
+        let ignoreSystemApps = appViewModel.ignoreSystemApps
         appViewModel.cancelRestoreTimer()
 
         let apps = appViewModel.savedSessionApps
@@ -556,7 +561,7 @@ class ViewController: NSViewController {
 
         let restorePlan = SessionRestorePlanner.makePlan(
             isUITestStubMode: isUITestStubMode,
-            closeAppsOnRestore: closeApps.state == .on,
+            closeAppsOnRestore: appViewModel.closeAppsOnRestore,
             appNames: apps,
             appURLs: executables
         )
@@ -565,7 +570,7 @@ class ViewController: NSViewController {
             let runningApps = sessionRuntime.trackableRunningApps(
                 includeTerminal: false,
                 includeLater: true,
-                ignoreSystemApps: ignoreFinder.state == .on
+                ignoreSystemApps: ignoreSystemApps
             )
             _ = sessionRuntime.applySavedAppAction(preRestoreAction, to: runningApps)
         }
@@ -606,7 +611,7 @@ class ViewController: NSViewController {
         sessionLabel.lineBreakMode = .byTruncatingTail
         sessionLabel.toolTip = appViewModel.sessionFullName
         numberOfSessions.title = String(appViewModel.sessionCount)
-        if (waitCheckbox.state == .on) {
+        if appViewModel.waitBeforeRestore {
             showTimer()
         } else {
             hideTimer()
