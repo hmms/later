@@ -59,3 +59,15 @@ public enum UITestStateEncoder {
         return try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
     }
 }
+
+public enum UITestStateStore {
+    private static let timerScheduledKey = "uiTestTimerScheduled"
+
+    public static func setTimerScheduled(_ isScheduled: Bool, defaults: UserDefaults = .standard) {
+        defaults.set(isScheduled, forKey: timerScheduledKey)
+    }
+
+    public static func isTimerScheduled(defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: timerScheduledKey)
+    }
+}

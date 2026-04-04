@@ -241,7 +241,7 @@ class ViewController: NSViewController {
         )
 
         if isUITestMode {
-            settingsStoreForUITestTimerState(true)
+            UITestStateStore.setTimerScheduled(true)
             writeUITestStateSnapshot()
         }
     }
@@ -416,7 +416,7 @@ class ViewController: NSViewController {
         if !enabled {
             hideTimer()
             if isUITestMode {
-                settingsStoreForUITestTimerState(false)
+                UITestStateStore.setTimerScheduled(false)
                 writeUITestStateSnapshot()
             }
         }
@@ -453,7 +453,7 @@ class ViewController: NSViewController {
         appViewModel.cancelRestoreTimer()
         hideTimer()
         if isUITestMode {
-            settingsStoreForUITestTimerState(false)
+            UITestStateStore.setTimerScheduled(false)
             writeUITestStateSnapshot()
         }
     }
@@ -577,7 +577,7 @@ class ViewController: NSViewController {
             noSessions()
         }
         if isUITestMode {
-            settingsStoreForUITestTimerState(false)
+            UITestStateStore.setTimerScheduled(false)
         }
         
         if !isUITestMode {
@@ -620,10 +620,6 @@ class ViewController: NSViewController {
         checkAnyWindows()
     }
 
-    private func settingsStoreForUITestTimerState(_ isScheduled: Bool) {
-        UserDefaults.standard.set(isScheduled, forKey: "uiTestTimerScheduled")
-    }
-
     private func writeUITestStateSnapshot() {
         guard isUITestMode, let stateFileURL = uiTestStateFileURL else {
             return
@@ -633,7 +629,7 @@ class ViewController: NSViewController {
             let snapshot = UITestStateSnapshot(
                 hasSession: appViewModel.hasSession,
                 savedAppCount: appViewModel.savedSessionApps.count,
-                timerScheduled: UserDefaults.standard.bool(forKey: "uiTestTimerScheduled"),
+                timerScheduled: UITestStateStore.isTimerScheduled(),
                 globalShortcutsDisabled: appDelegate.shortcutsDisabled,
                 launchAtLoginEnabled: appViewModel.launchAtLogin
             )

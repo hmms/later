@@ -393,6 +393,32 @@ struct UITestHarnessTests {
         #expect(object["globalShortcutsDisabled"] as? Bool == false)
         #expect(object["launchAtLoginEnabled"] as? Bool == true)
     }
+
+    @Test("State store round-trips timer scheduled flag")
+    func stateStoreRoundTripTimerFlag() {
+        let suiteName = "UITestStateStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        UITestStateStore.setTimerScheduled(true, defaults: defaults)
+        #expect(UITestStateStore.isTimerScheduled(defaults: defaults))
+
+        UITestStateStore.setTimerScheduled(false, defaults: defaults)
+        #expect(!UITestStateStore.isTimerScheduled(defaults: defaults))
+    }
+
+    @Test("State store defaults timer scheduled flag to false when unset")
+    func stateStoreDefaultsToFalseWhenUnset() {
+        let suiteName = "UITestStateStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        #expect(!UITestStateStore.isTimerScheduled(defaults: defaults))
+    }
 }
 
 @Suite("SessionRestorePlanner")
