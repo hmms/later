@@ -100,8 +100,8 @@ class ViewController: NSViewController {
             onRestore: { [weak self] in self?.restoreSessionGlobal() }
         )
 
+        configureStaticAppearance()
         renderSessionState()
-        fixStyles()
         setUpMenu()
         setAccessibilityIdentifiers()
         
@@ -242,7 +242,7 @@ class ViewController: NSViewController {
         settingsMenu.appearance = NSAppearance.current
     }
     
-    func setScreenshot() {
+    private func renderPreviewImage() {
         let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0] as NSURL
         let fileUrl = documentsUrl.appendingPathComponent("screenshot.jpg")
         preview.image = NSImage(byReferencing: fileUrl!)
@@ -250,8 +250,8 @@ class ViewController: NSViewController {
         preview.layer?.cornerRadius = 10
     }
     
-    // Styling fixes / overrides
-    func fixStyles() {
+    // One-time styling setup for static controls.
+    private func configureStaticAppearance() {
         button.wantsLayer = true
         button.image = NSImage(named:"blue-button")
         button.imageScaling = .scaleAxesIndependently
@@ -474,8 +474,7 @@ class ViewController: NSViewController {
         } else {
             renderNoSessionState()
         }
-        fixStyles()
-        setScreenshot()
+        renderPreviewImage()
         renderSaveAvailability()
         currentView.needsLayout = true
         currentView.updateConstraints()
