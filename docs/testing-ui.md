@@ -43,6 +43,12 @@ These are handled in `ViewController.runUITestHooks()`:
 - `UITEST_TRIGGER_RESTORE`
 - `UITEST_TRIGGER_CANCEL_TIMER`
 
+Additional launch path toggle in `AppDelegate`:
+
+- `USE_SWIFTUI_POPOVER`
+
+You can also enable the same path with environment variable `LATER_USE_SWIFTUI_POPOVER=1` for local/manual validation without changing the default storyboard path.
+
 ## Snapshot schema
 
 `ViewController.writeUITestStateSnapshot()` currently emits:

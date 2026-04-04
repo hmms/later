@@ -92,17 +92,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var shouldResetUITestDefaults: Bool {
         ProcessInfo.processInfo.arguments.contains("UITEST_RESET_DEFAULTS")
     }
+    private var shouldUseSwiftUIPopover: Bool {
+        let processInfo = ProcessInfo.processInfo
+        if processInfo.arguments.contains("USE_SWIFTUI_POPOVER") {
+            return true
+        }
+
+        guard let value = processInfo.environment["LATER_USE_SWIFTUI_POPOVER"]?.lowercased() else {
+            return false
+        }
+        return value == "1" || value == "true" || value == "yes"
+    }
      
+    @MainActor
     func runApp() {
         statusItem.button?.image = NSImage(named: NSImage.Name("icon"))
         statusItem.button?.target = self
         statusItem.button?.action = #selector(AppDelegate.togglePopover(_:))
-        
-        let storyboard = NSStoryboard(name: "Main", bundle: nil)
-        guard let vc = storyboard.instantiateController(withIdentifier: "ViewController1") as? ViewController else {
-            fatalError("Unable to find ViewController")
+
+        if shouldUseSwiftUIPopover {
+            popoverView.contentViewController = makeSwiftUIPopoverContentViewController()
+        } else {
+            let storyboard = NSStoryboard(name: "Main", bundle: nil)
+            guard let vc = storyboard.instantiateController(withIdentifier: "ViewController1") as? ViewController else {
+                fatalError("Unable to find ViewController")
+            }
+            popoverView.contentViewController = vc
         }
-        popoverView.contentViewController = vc
         popoverView.behavior = .transient
         eventMonitor = EventMonitor(mask: [.leftMouseDown, .rightMouseDown]) { [unowned self] event in
             if popoverView.isShown {
@@ -133,7 +149,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return version.map { "v\($0)" } ?? "Later"
     }
 
-
+    @MainActor
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         if isUITestMode && shouldResetUITestDefaults, let bundleID = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleID)
