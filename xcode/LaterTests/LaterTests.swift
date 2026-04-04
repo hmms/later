@@ -818,6 +818,44 @@ struct AppViewModelTests {
         #expect(viewModel.timerLabel == nil)
     }
 
+    @Test("Main popover snapshot maps current app view model state")
+    func mainPopoverSnapshot() {
+        var (store, suiteName) = makeStore()
+        defer { UserDefaults().removePersistentDomain(forName: suiteName) }
+
+        store.hasSession = true
+        store.sessionName = "Safari, Xcode, +1 more"
+        store.sessionDate = "Apr 3, 2026 at 10:20 PM"
+        store.totalSessions = "3"
+        store.closeAppsOnRestore = true
+        store.keepWindowsOpen = false
+        store.waitBeforeRestore = true
+        store.ignoreSystemApps = true
+
+        let viewModel = AppViewModel(
+            settingsStore: store,
+            launchAtLoginEnabled: true,
+            selectedTimerDuration: "30 minutes"
+        )
+
+        viewModel.refreshSaveAvailability(trackableAppCount: 2)
+        viewModel.refreshTimerState(label: "Reopening in 00:29:59")
+
+        let snapshot = viewModel.mainPopoverSnapshot
+        #expect(snapshot.hasSession)
+        #expect(snapshot.sessionLabel == "Safari, Xcode, +1 more")
+        #expect(snapshot.sessionDate == "Apr 3, 2026 at 10:20 PM")
+        #expect(snapshot.sessionCountText == "3")
+        #expect(snapshot.timerLabel == "Reopening in 00:29:59")
+        #expect(snapshot.closeAppsOnRestore)
+        #expect(snapshot.quitAppsInsteadOfHiding)
+        #expect(snapshot.waitBeforeRestore)
+        #expect(snapshot.ignoreSystemWindows)
+        #expect(snapshot.launchAtLogin)
+        #expect(snapshot.timerDuration == "30 minutes")
+        #expect(snapshot.isSaveEnabled)
+    }
+
     @Test("Restore timer invokes completion callback on expiry")
     func timerCompletionOnExpiry() async {
         var (store, suiteName) = makeStore()

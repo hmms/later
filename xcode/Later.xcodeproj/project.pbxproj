@@ -11,6 +11,7 @@
 		A6FF91C52F52B3DD00C575DC /* LaterLogic in Frameworks */ = {isa = PBXBuildFile; productRef = A6FF91C42F52B3DD00C575DC /* LaterLogic */; };
 		EC376243279C641D003144C7 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC376242279C641D003144C7 /* AppDelegate.swift */; };
 		EC376245279C641D003144C7 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC376244279C641D003144C7 /* ViewController.swift */; };
+		E0A100012F70000100B1C1D1 /* MainPopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100002F70000100B1C1D1 /* MainPopoverView.swift */; };
 		EC376247279C641E003144C7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EC376246279C641E003144C7 /* Assets.xcassets */; };
 		EC37624A279C641E003144C7 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = EC376248279C641E003144C7 /* Main.storyboard */; };
 		EC376258279EF896003144C7 /* EventMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC376257279EF896003144C7 /* EventMonitor.swift */; };
@@ -44,6 +45,7 @@
 		EC37623F279C641D003144C7 /* Later.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Later.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC376242279C641D003144C7 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		EC376244279C641D003144C7 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		E0A100002F70000100B1C1D1 /* MainPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainPopoverView.swift; sourceTree = "<group>"; };
 		EC376246279C641E003144C7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Test/Assets.xcassets; sourceTree = SOURCE_ROOT; };
 		EC37624B279C641E003144C7 /* Test.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Test.entitlements; sourceTree = "<group>"; };
 		EC376251279C66F4003144C7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -130,6 +132,7 @@
 				EC37625B279F0737003144C7 /* Fonts */,
 				EC376251279C66F4003144C7 /* Info.plist */,
 				EC376242279C641D003144C7 /* AppDelegate.swift */,
+				E0A100002F70000100B1C1D1 /* MainPopoverView.swift */,
 				EC376244279C641D003144C7 /* ViewController.swift */,
 				ECF31AE627BC4DF200994D3C /* ViewController2.xib */,
 				EC376246279C641E003144C7 /* Assets.xcassets */,
@@ -358,6 +361,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EC376258279EF896003144C7 /* EventMonitor.swift in Sources */,
+				E0A100012F70000100B1C1D1 /* MainPopoverView.swift in Sources */,
 				EC376245279C641D003144C7 /* ViewController.swift in Sources */,
 				EC376243279C641D003144C7 /* AppDelegate.swift in Sources */,
 			);

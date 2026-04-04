@@ -29,6 +29,49 @@ public struct SessionSnapshot: Equatable {
     }
 }
 
+public struct MainPopoverSnapshot: Equatable {
+    public let hasSession: Bool
+    public let sessionLabel: String
+    public let sessionDate: String
+    public let sessionCountText: String
+    public let timerLabel: String?
+    public let closeAppsOnRestore: Bool
+    public let quitAppsInsteadOfHiding: Bool
+    public let waitBeforeRestore: Bool
+    public let ignoreSystemWindows: Bool
+    public let launchAtLogin: Bool
+    public let timerDuration: String
+    public let isSaveEnabled: Bool
+
+    public init(
+        hasSession: Bool,
+        sessionLabel: String,
+        sessionDate: String,
+        sessionCountText: String,
+        timerLabel: String?,
+        closeAppsOnRestore: Bool,
+        quitAppsInsteadOfHiding: Bool,
+        waitBeforeRestore: Bool,
+        ignoreSystemWindows: Bool,
+        launchAtLogin: Bool,
+        timerDuration: String,
+        isSaveEnabled: Bool
+    ) {
+        self.hasSession = hasSession
+        self.sessionLabel = sessionLabel
+        self.sessionDate = sessionDate
+        self.sessionCountText = sessionCountText
+        self.timerLabel = timerLabel
+        self.closeAppsOnRestore = closeAppsOnRestore
+        self.quitAppsInsteadOfHiding = quitAppsInsteadOfHiding
+        self.waitBeforeRestore = waitBeforeRestore
+        self.ignoreSystemWindows = ignoreSystemWindows
+        self.launchAtLogin = launchAtLogin
+        self.timerDuration = timerDuration
+        self.isSaveEnabled = isSaveEnabled
+    }
+}
+
 @MainActor
 public final class AppViewModel: NSObject, ObservableObject {
     private var settingsStore: SettingsStore
@@ -204,6 +247,23 @@ public final class AppViewModel: NSObject, ObservableObject {
 
     public var savedSessionURLs: [String] {
         settingsStore.savedAppURLs
+    }
+
+    public var mainPopoverSnapshot: MainPopoverSnapshot {
+        MainPopoverSnapshot(
+            hasSession: hasSession,
+            sessionLabel: sessionLabel,
+            sessionDate: sessionDate,
+            sessionCountText: sessionCount > 0 ? "\(sessionCount)" : "",
+            timerLabel: timerLabel,
+            closeAppsOnRestore: closeAppsOnRestore,
+            quitAppsInsteadOfHiding: !keepWindowsOpen,
+            waitBeforeRestore: waitBeforeRestore,
+            ignoreSystemWindows: ignoreSystemApps,
+            launchAtLogin: launchAtLogin,
+            timerDuration: selectedTimerDuration,
+            isSaveEnabled: isSaveEnabled
+        )
     }
 
     @objc private func handleCountdownTimerTick() {
