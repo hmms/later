@@ -193,6 +193,7 @@ class ViewController: NSViewController {
                 self?.restoreSessionGlobal()
             }
         )
+        renderTimerVisibility()
 
         if isUITestMode {
             UITestStateStore.setTimerScheduled(true)
@@ -361,11 +362,7 @@ class ViewController: NSViewController {
         let enabled = waitCheckbox.state == .on
         appViewModel.setWaitBeforeRestore(enabled)
         if !enabled {
-            hideTimer()
-            if isUITestMode {
-                UITestStateStore.setTimerScheduled(false)
-                writeUITestStateSnapshot()
-            }
+            handleRestoreTimerCancelled(writeSnapshot: true)
         }
     }
 
@@ -431,12 +428,7 @@ class ViewController: NSViewController {
     }
     
     @IBAction func cancelTimeClick(_ sender: Any) {
-        appViewModel.cancelRestoreTimer()
-        hideTimer()
-        if isUITestMode {
-            UITestStateStore.setTimerScheduled(false)
-            writeUITestStateSnapshot()
-        }
+        handleRestoreTimerCancelled(writeSnapshot: true)
     }
     
     func hideTimer() {
@@ -487,10 +479,22 @@ class ViewController: NSViewController {
     }
 
     private func renderTimerVisibility() {
-        if appViewModel.waitBeforeRestore {
+        timeLabel.stringValue = appViewModel.timerLabel ?? ""
+        if appViewModel.isTimerVisible {
             showTimer()
         } else {
             hideTimer()
+        }
+    }
+
+    private func handleRestoreTimerCancelled(writeSnapshot: Bool) {
+        appViewModel.cancelRestoreTimer()
+        renderTimerVisibility()
+        if isUITestMode {
+            UITestStateStore.setTimerScheduled(false)
+            if writeSnapshot {
+                writeUITestStateSnapshot()
+            }
         }
     }
 
@@ -573,7 +577,7 @@ class ViewController: NSViewController {
     
     @objc func restoreSessionGlobal() {
         let ignoreSystemApps = appViewModel.ignoreSystemApps
-        appViewModel.cancelRestoreTimer()
+        handleRestoreTimerCancelled(writeSnapshot: false)
 
         let apps = appViewModel.savedSessionApps
         let executables = appViewModel.savedSessionURLs
@@ -600,10 +604,6 @@ class ViewController: NSViewController {
             }
             noSessions()
         }
-        if isUITestMode {
-            UITestStateStore.setTimerScheduled(false)
-        }
-        
         if !isUITestMode {
             appDelegate.closePopover(self)
         }
