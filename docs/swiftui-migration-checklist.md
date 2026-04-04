@@ -120,4 +120,5 @@ Use this sequence to keep architecture changes small, reviewable, and reversible
 - 2026-04-03: Consolidated `ViewController` popover-closing and UITest snapshot/timer-state writes behind small adapter helpers, removing repeated controller cleanup code from save/restore/timer flows.
 - 2026-04-03: Switched save-button enabled state rendering to `AppViewModel.isSaveEnabled`, removing the last direct save-availability toggles from `ViewController`.
 - 2026-04-03: Centralized settings checkbox/menu mutations behind `ViewController` adapter helpers so settings changes now follow one render + UITest snapshot path.
+- 2026-04-03: Routed timer-duration dropdown selection through `AppViewModel.selectedTimerDuration`, so `ViewController` now renders the dropdown from model state and restore scheduling no longer reads the control directly.
 - 2026-04-03: Routed settings checkbox/menu mutations through dedicated `ViewController` adapter helpers so launch/login, shortcuts, close/hide, ignore-system, keep-open, and wait toggles now share a consistent render-and-snapshot path.

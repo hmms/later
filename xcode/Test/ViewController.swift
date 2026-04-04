@@ -93,6 +93,7 @@ class ViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         appViewModel.refreshFromSettings(launchAtLoginEnabled: launchAtLoginEnabled)
+        configureTimerDropdown()
         renderSettingsControls()
         appDelegate.configureShortcutHandlers(
             onSave: { [weak self] in self?.saveSessionGlobal() },
@@ -171,6 +172,11 @@ class ViewController: NSViewController {
         view.identifier = NSUserInterfaceItemIdentifier(identifier)
         view.setAccessibilityIdentifier(identifier)
     }
+
+    private func configureTimerDropdown() {
+        timeDropdown.target = self
+        timeDropdown.action = #selector(timerDurationChanged(_:))
+    }
     
     func observeModel() {
         self.observers = [
@@ -182,7 +188,7 @@ class ViewController: NSViewController {
     
     // Set a timer to restore session
     func waitForSession() {
-        let selectedOption = timeDropdown.titleOfSelectedItem ?? "15 minutes"
+        let selectedOption = appViewModel.selectedTimerDuration
         appViewModel.scheduleRestoreTimer(
             durationOption: selectedOption,
             onTick: { [weak self] label in
@@ -352,12 +358,17 @@ class ViewController: NSViewController {
         applyWaitBeforeRestore(waitCheckbox.state == .on)
     }
 
+    @objc private func timerDurationChanged(_ sender: NSPopUpButton) {
+        applySelectedTimerDuration(sender.titleOfSelectedItem ?? "15 minutes")
+    }
+
     private func renderSettingsControls() {
         applyControlState(appViewModel.launchAtLogin, to: checkbox)
         applyControlState(appViewModel.closeAppsOnRestore, to: closeApps)
         applyControlState(appViewModel.ignoreSystemApps, to: ignoreFinder)
         applyControlState(appViewModel.waitBeforeRestore, to: waitCheckbox)
         renderKeepWindowsOpenControl()
+        renderTimerDurationControl()
         renderShortcutsMenuItem()
     }
 
@@ -368,6 +379,10 @@ class ViewController: NSViewController {
     private func renderKeepWindowsOpenControl() {
         // Persisted value means "keep windows open" (hide apps). The checkbox label is inverse.
         keepWindowsOpen.state = appViewModel.keepWindowsOpen ? .off : .on
+    }
+
+    private func renderTimerDurationControl() {
+        timeDropdown.selectItem(withTitle: appViewModel.selectedTimerDuration)
     }
 
     private func renderShortcutsMenuItem() {
@@ -406,6 +421,12 @@ class ViewController: NSViewController {
         if !enabled {
             updateUITestTimerScheduled(false, writeSnapshot: false)
         }
+        writeUITestStateSnapshot()
+    }
+
+    private func applySelectedTimerDuration(_ value: String) {
+        appViewModel.refreshSelectedTimerDuration(value)
+        renderSettingsControls()
         writeUITestStateSnapshot()
     }
 

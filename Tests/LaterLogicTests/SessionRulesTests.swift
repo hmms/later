@@ -790,6 +790,18 @@ struct AppViewModelTests {
         #expect(reloaded.waitBeforeRestore)
     }
 
+    @Test("Refreshing selected timer duration updates published state")
+    func selectedTimerDurationRefreshes() {
+        let (store, suiteName) = makeStore()
+        defer { UserDefaults().removePersistentDomain(forName: suiteName) }
+
+        let viewModel = AppViewModel(settingsStore: store)
+        #expect(viewModel.selectedTimerDuration == "15 minutes")
+
+        viewModel.refreshSelectedTimerDuration("30 minutes")
+        #expect(viewModel.selectedTimerDuration == "30 minutes")
+    }
+
     @Test("Disabling wait-before-restore clears any active timer")
     func disablingWaitBeforeRestoreCancelsTimer() {
         var (store, suiteName) = makeStore()
