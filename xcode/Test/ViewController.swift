@@ -93,39 +93,7 @@ class ViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         appViewModel.refreshFromSettings(launchAtLoginEnabled: launchAtLoginEnabled)
-        
-        if appViewModel.launchAtLogin {
-            checkbox.state = .on
-        } else {
-            checkbox.state = .off
-        }
-        
-        if (appViewModel.closeAppsOnRestore) {
-            closeApps.state = .on
-        } else {
-            closeApps.state = .off
-        }
-        
-        if (appViewModel.ignoreSystemApps) {
-            ignoreFinder.state = .on
-        } else {
-            ignoreFinder.state = .off
-        }
-        
-        // Persisted value means "keep windows open" (hide apps). The checkbox label is inverse.
-        if appViewModel.keepWindowsOpen {
-            keepWindowsOpen.state = .off
-        } else {
-            keepWindowsOpen.state = .on
-        }
-        
-        if (appViewModel.waitBeforeRestore) {
-            waitCheckbox.state = .on
-        } else {
-            waitCheckbox.state = .off
-        }
-        
-        applyShortcutsDisabled(appDelegate.shortcutsDisabled)
+        renderSettingsControls()
         appDelegate.configureShortcutHandlers(
             onSave: { [weak self] in self?.saveSessionGlobal() },
             onRestore: { [weak self] in self?.restoreSessionGlobal() }
@@ -155,8 +123,8 @@ class ViewController: NSViewController {
         let hooks = UITestHooks(arguments: ProcessInfo.processInfo.arguments)
 
         if hooks.enableWait {
-            waitCheckbox.state = .on
             appViewModel.setWaitBeforeRestore(true)
+            renderSettingsControls()
         }
 
         if hooks.disableShortcuts {
@@ -408,16 +376,38 @@ class ViewController: NSViewController {
         }
     }
 
+    private func renderSettingsControls() {
+        applyControlState(appViewModel.launchAtLogin, to: checkbox)
+        applyControlState(appViewModel.closeAppsOnRestore, to: closeApps)
+        applyControlState(appViewModel.ignoreSystemApps, to: ignoreFinder)
+        applyControlState(appViewModel.waitBeforeRestore, to: waitCheckbox)
+        renderKeepWindowsOpenControl()
+        renderShortcutsMenuItem()
+    }
+
+    private func applyControlState(_ enabled: Bool, to control: NSButton) {
+        control.state = enabled ? .on : .off
+    }
+
+    private func renderKeepWindowsOpenControl() {
+        // Persisted value means "keep windows open" (hide apps). The checkbox label is inverse.
+        keepWindowsOpen.state = appViewModel.keepWindowsOpen ? .off : .on
+    }
+
+    private func renderShortcutsMenuItem() {
+        checkKey.state = appDelegate.shortcutsDisabled ? .on : .off
+    }
+
     private func applyLaunchAtLogin(_ enabled: Bool) {
-        checkbox.state = enabled ? .on : .off
         appDelegate.setLaunchAtLoginEnabled(enabled, isUITestMode: isUITestMode)
         appViewModel.setLaunchAtLogin(enabled)
+        renderSettingsControls()
         writeUITestStateSnapshot()
     }
 
     private func applyShortcutsDisabled(_ disabled: Bool) {
-        checkKey.state = disabled ? .on : .off
         appDelegate.setShortcutsDisabled(disabled)
+        renderShortcutsMenuItem()
     }
     
     func currentDateString() -> String {
