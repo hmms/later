@@ -124,3 +124,4 @@ Use this sequence to keep architecture changes small, reviewable, and reversible
 - 2026-04-03: Routed settings checkbox/menu mutations through dedicated `ViewController` adapter helpers so launch/login, shortcuts, close/hide, ignore-system, keep-open, and wait toggles now share a consistent render-and-snapshot path.
 - 2026-04-03: Consolidated session/timer layout rendering in `ViewController`, replacing duplicate timer show/hide helpers with a single timer layout path and explicit empty-session/saved-session layout helpers.
 - 2026-04-03: Moved static control styling to one-time controller setup and kept session rendering focused on dynamic preview/session state, reducing repeated appearance work inside `renderSessionState()`.
+- 2026-04-03: Extracted UITest hook execution order into `LaterLogic.UITestActionPlan` with mirrored tests, so `ViewController` now forwards an ordered list of UITest actions instead of branching on each raw hook flag.

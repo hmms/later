@@ -374,6 +374,39 @@ struct UITestHarnessTests {
         #expect(!hooks.disableShortcuts)
     }
 
+    @Test("Action plan preserves hook execution order and shortcut precedence")
+    func actionPlanPreservesOrder() {
+        let hooks = UITestHooks(
+            arguments: [
+                "UITEST_MODE",
+                "UITEST_ENABLE_WAIT",
+                "UITEST_DISABLE_SHORTCUTS",
+                "UITEST_ENABLE_SHORTCUTS",
+                "UITEST_TOGGLE_LAUNCH_AT_LOGIN",
+                "UITEST_TRIGGER_SAVE",
+                "UITEST_TRIGGER_SHORTCUT_SAVE",
+                "UITEST_TRIGGER_SHORTCUT_RESTORE",
+                "UITEST_TRIGGER_RESTORE",
+                "UITEST_TRIGGER_CANCEL_TIMER",
+            ]
+        )
+
+        let actions = UITestActionPlan.makeActions(from: hooks)
+
+        #expect(
+            actions == [
+                .enableWait,
+                .disableShortcuts,
+                .toggleLaunchAtLogin,
+                .triggerSave,
+                .triggerShortcutSave,
+                .triggerShortcutRestore,
+                .triggerRestore,
+                .triggerCancelTimer,
+            ]
+        )
+    }
+
     @Test("State encoder emits stable JSON payload keys")
     func stateEncoderEmitsExpectedKeys() throws {
         let snapshot = UITestStateSnapshot(

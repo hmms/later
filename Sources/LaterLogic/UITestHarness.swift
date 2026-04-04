@@ -25,6 +25,60 @@ public struct UITestHooks: Equatable {
     }
 }
 
+public enum UITestAction: Equatable {
+    case enableWait
+    case disableShortcuts
+    case enableShortcuts
+    case toggleLaunchAtLogin
+    case triggerSave
+    case triggerShortcutSave
+    case triggerShortcutRestore
+    case triggerRestore
+    case triggerCancelTimer
+}
+
+public enum UITestActionPlan {
+    public static func makeActions(from hooks: UITestHooks) -> [UITestAction] {
+        var actions: [UITestAction] = []
+
+        if hooks.enableWait {
+            actions.append(.enableWait)
+        }
+
+        if hooks.disableShortcuts {
+            actions.append(.disableShortcuts)
+        } else if hooks.enableShortcuts {
+            actions.append(.enableShortcuts)
+        }
+
+        if hooks.toggleLaunchAtLogin {
+            actions.append(.toggleLaunchAtLogin)
+        }
+
+        if hooks.triggerSave {
+            actions.append(.triggerSave)
+        }
+
+        if hooks.triggerShortcutSave {
+            actions.append(.triggerShortcutSave)
+        }
+
+        if hooks.triggerShortcutRestore {
+            actions.append(.triggerShortcutRestore)
+        }
+
+        if hooks.triggerRestore {
+            actions.append(.triggerRestore)
+        }
+
+        if hooks.triggerCancelTimer {
+            actions.append(.triggerCancelTimer)
+        }
+
+        return actions
+    }
+}
+
 public struct UITestStateSnapshot: Equatable {
     public let hasSession: Bool
     public let savedAppCount: Int

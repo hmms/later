@@ -115,42 +115,36 @@ class ViewController: NSViewController {
 
     private func runUITestHooks() {
         let hooks = UITestHooks(arguments: ProcessInfo.processInfo.arguments)
+        let actions = UITestActionPlan.makeActions(from: hooks)
 
-        if hooks.enableWait {
-            applyWaitBeforeRestore(true)
-        }
-
-        if hooks.disableShortcuts {
-            applyShortcutsDisabled(true)
-        } else if hooks.enableShortcuts {
-            applyShortcutsDisabled(false)
-        }
-
-        if hooks.toggleLaunchAtLogin {
-            applyLaunchAtLogin(!appViewModel.launchAtLogin)
-        }
-
-        if hooks.triggerSave {
-            saveSessionGlobal()
-        }
-
-        if hooks.triggerShortcutSave {
-            appDelegate.triggerSaveShortcutForTesting()
-        }
-
-        if hooks.triggerShortcutRestore {
-            appDelegate.triggerRestoreShortcutForTesting()
-        }
-
-        if hooks.triggerRestore {
-            restoreSessionGlobal()
-        }
-
-        if hooks.triggerCancelTimer {
-            cancelTimeClick(self)
+        for action in actions {
+            handleUITestAction(action)
         }
 
         writeUITestStateSnapshot()
+    }
+
+    private func handleUITestAction(_ action: UITestAction) {
+        switch action {
+        case .enableWait:
+            applyWaitBeforeRestore(true)
+        case .disableShortcuts:
+            applyShortcutsDisabled(true)
+        case .enableShortcuts:
+            applyShortcutsDisabled(false)
+        case .toggleLaunchAtLogin:
+            applyLaunchAtLogin(!appViewModel.launchAtLogin)
+        case .triggerSave:
+            saveSessionGlobal()
+        case .triggerShortcutSave:
+            appDelegate.triggerSaveShortcutForTesting()
+        case .triggerShortcutRestore:
+            appDelegate.triggerRestoreShortcutForTesting()
+        case .triggerRestore:
+            restoreSessionGlobal()
+        case .triggerCancelTimer:
+            cancelTimeClick(self)
+        }
     }
 
     private func setAccessibilityIdentifiers() {
