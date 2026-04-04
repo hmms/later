@@ -98,15 +98,8 @@ class ViewController: NSViewController {
             onSave: { [weak self] in self?.saveSessionGlobal() },
             onRestore: { [weak self] in self?.restoreSessionGlobal() }
         )
-        
-        
-        if (!appViewModel.hasSession) {
-            noSessions()
-        } else {
-            updateSession()
-        }
-        
-        setScreenshot()
+
+        renderSessionState()
         fixStyles()
         setUpMenu()
         setAccessibilityIdentifiers()
@@ -462,6 +455,45 @@ class ViewController: NSViewController {
         currentView.updateConstraints()
     }
 
+    private func renderSessionState() {
+        if appViewModel.hasSession {
+            renderSavedSession()
+        } else {
+            renderNoSessionState()
+        }
+        fixStyles()
+        setScreenshot()
+        currentView.needsLayout = true
+        currentView.updateConstraints()
+        checkAnyWindows()
+    }
+
+    private func renderSavedSession() {
+        dateLabel.stringValue = appViewModel.sessionDate
+        dateLabel.lineBreakMode = .byTruncatingTail
+        sessionLabel.stringValue = appViewModel.sessionLabel
+        sessionLabel.lineBreakMode = .byTruncatingTail
+        sessionLabel.toolTip = appViewModel.sessionFullName
+        numberOfSessions.title = String(appViewModel.sessionCount)
+        renderTimerVisibility()
+        topBoxSpacing.constant = 16
+        containerHeight.constant = 520
+    }
+
+    private func renderNoSessionState() {
+        boxHeight.constant = 0
+        topBoxSpacing.constant = 0
+        containerHeight.constant = 290
+    }
+
+    private func renderTimerVisibility() {
+        if appViewModel.waitBeforeRestore {
+            showTimer()
+        } else {
+            hideTimer()
+        }
+    }
+
     func saveSessionGlobal() {
         let ignoreSystemApps = appViewModel.ignoreSystemApps
         var capturedApps = [SessionCapturedApp]()
@@ -515,7 +547,7 @@ class ViewController: NSViewController {
 
         // Save session data
         appViewModel.saveSessionSnapshot(snapshot)
-        updateSession()
+        renderSessionState()
         if appViewModel.waitBeforeRestore {
             waitForSession()
         }
@@ -581,35 +613,12 @@ class ViewController: NSViewController {
     // No sessions popover state
     func noSessions() {
         appViewModel.clearActiveSession()
-        boxHeight.constant = 0
-        topBoxSpacing.constant = 0
-        containerHeight.constant = 290
-        currentView.needsLayout = true
-        currentView.updateConstraints()
-        fixStyles()
-        checkAnyWindows()
+        renderSessionState()
     }
     
     // New session or override
     func updateSession() {
-        dateLabel.stringValue = appViewModel.sessionDate
-        dateLabel.lineBreakMode = .byTruncatingTail
-        sessionLabel.stringValue = appViewModel.sessionLabel
-        sessionLabel.lineBreakMode = .byTruncatingTail
-        sessionLabel.toolTip = appViewModel.sessionFullName
-        numberOfSessions.title = String(appViewModel.sessionCount)
-        if appViewModel.waitBeforeRestore {
-            showTimer()
-        } else {
-            hideTimer()
-        }
-        fixStyles()
-        setScreenshot()
-        topBoxSpacing.constant = 16
-        containerHeight.constant = 520
-        currentView.needsLayout = true
-        currentView.updateConstraints()
-        checkAnyWindows()
+        renderSessionState()
     }
 
     private func writeUITestStateSnapshot() {
