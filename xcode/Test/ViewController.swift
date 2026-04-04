@@ -209,12 +209,8 @@ class ViewController: NSViewController {
                 ignoreSystemApps: ignoreSystemApps
             ).count
         }
-
-        if (totalSessions == 0) {
-            button.isEnabled = false
-        } else {
-            button.isEnabled = true
-        }
+        appViewModel.refreshSaveAvailability(trackableAppCount: totalSessions)
+        renderSaveAvailability()
     }
     
     @objc func openURL() {
@@ -407,7 +403,8 @@ class ViewController: NSViewController {
     
     @IBAction func click(_ sender: Any) {
         saveSessionGlobal()
-        button.isEnabled = false
+        appViewModel.refreshSaveAvailability(trackableAppCount: 0)
+        renderSaveAvailability()
     }
     
     @IBAction func restoreSession(_ sender: Any) {
@@ -451,9 +448,14 @@ class ViewController: NSViewController {
         }
         fixStyles()
         setScreenshot()
+        renderSaveAvailability()
         currentView.needsLayout = true
         currentView.updateConstraints()
         checkAnyWindows()
+    }
+
+    private func renderSaveAvailability() {
+        button.isEnabled = appViewModel.isSaveEnabled
     }
 
     private func renderSavedSession() {
