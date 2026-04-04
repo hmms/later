@@ -94,7 +94,7 @@ class ViewController: NSViewController {
         super.viewDidLoad()
         appViewModel.refreshFromSettings(launchAtLoginEnabled: launchAtLoginEnabled)
         
-        if (launchAtLoginEnabled) {
+        if appViewModel.launchAtLogin {
             checkbox.state = .on
         } else {
             checkbox.state = .off
@@ -125,11 +125,7 @@ class ViewController: NSViewController {
             waitCheckbox.state = .off
         }
         
-        if appDelegate.shortcutsDisabled {
-            checkKey.state = .on
-        } else {
-            checkKey.state = .off
-        }
+        applyShortcutsDisabled(appDelegate.shortcutsDisabled)
         appDelegate.configureShortcutHandlers(
             onSave: { [weak self] in self?.saveSessionGlobal() },
             onRestore: { [weak self] in self?.restoreSessionGlobal() }
@@ -164,16 +160,13 @@ class ViewController: NSViewController {
         }
 
         if hooks.disableShortcuts {
-            appDelegate.setShortcutsDisabled(true)
-            checkKey.state = .on
+            applyShortcutsDisabled(true)
         } else if hooks.enableShortcuts {
-            appDelegate.setShortcutsDisabled(false)
-            checkKey.state = .off
+            applyShortcutsDisabled(false)
         }
 
         if hooks.toggleLaunchAtLogin {
-            checkbox.state = checkbox.state == .on ? .off : .on
-            startAtLogin(self)
+            applyLaunchAtLogin(!appViewModel.launchAtLogin)
         }
 
         if hooks.triggerSave {
@@ -276,13 +269,7 @@ class ViewController: NSViewController {
     }
     
     @objc func switchKey() {
-        if (checkKey.state == .on) {
-            checkKey.state = .off
-            appDelegate.setShortcutsDisabled(false)
-        } else {
-            checkKey.state = .on
-            appDelegate.setShortcutsDisabled(true)
-        }
+        applyShortcutsDisabled(!appDelegate.shortcutsDisabled)
         writeUITestStateSnapshot()
     }
     
@@ -392,9 +379,7 @@ class ViewController: NSViewController {
     
     @IBAction func startAtLogin(_ sender: Any) {
         let enabled = checkbox.state == .on
-        appDelegate.setLaunchAtLoginEnabled(enabled, isUITestMode: isUITestMode)
-        appViewModel.setLaunchAtLogin(enabled)
-        writeUITestStateSnapshot()
+        applyLaunchAtLogin(enabled)
     }
     
     @IBAction func closeAppsCheck(_ sender: Any) {
@@ -421,6 +406,18 @@ class ViewController: NSViewController {
                 writeUITestStateSnapshot()
             }
         }
+    }
+
+    private func applyLaunchAtLogin(_ enabled: Bool) {
+        checkbox.state = enabled ? .on : .off
+        appDelegate.setLaunchAtLoginEnabled(enabled, isUITestMode: isUITestMode)
+        appViewModel.setLaunchAtLogin(enabled)
+        writeUITestStateSnapshot()
+    }
+
+    private func applyShortcutsDisabled(_ disabled: Bool) {
+        checkKey.state = disabled ? .on : .off
+        appDelegate.setShortcutsDisabled(disabled)
     }
     
     func currentDateString() -> String {

@@ -113,3 +113,4 @@ Use this sequence to keep architecture changes small, reviewable, and reversible
 - 2026-04-01: Moved launch-at-login side effects behind `LaunchAtLoginAdapter` in `AppDelegate`; `ViewController` no longer directly imports or mutates `LaunchAtLogin`.
 - 2026-04-03: Isolated UI-test timer scheduled state writes/reads behind `UITestStateStore` in `LaterLogic`; `ViewController` no longer uses raw `UserDefaults` timer keys directly.
 - 2026-04-03: Switched `ViewController` save/restore/filter/timer decision reads to `AppViewModel` state (instead of direct control-state reads), tightening adapter-only boundaries while preserving behavior.
+- 2026-04-03: Centralized launch-at-login and shortcut toggle mutations into `ViewController` adapter helpers, so UITest hooks/menu actions mutate app/model state through single pathways.
