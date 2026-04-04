@@ -126,3 +126,4 @@ Use this sequence to keep architecture changes small, reviewable, and reversible
 - 2026-04-03: Moved static control styling to one-time controller setup and kept session rendering focused on dynamic preview/session state, reducing repeated appearance work inside `renderSessionState()`.
 - 2026-04-03: Extracted UITest hook execution order into `LaterLogic.UITestActionPlan` with mirrored tests, so `ViewController` now forwards an ordered list of UITest actions instead of branching on each raw hook flag.
 - 2026-04-03: Moved UITest snapshot file persistence into `LaterLogic.UITestStateWriter` with mirrored file-write tests, leaving `ViewController` responsible only for assembling current UI-test state.
+- 2026-04-03: Extracted UITest snapshot composition into `LaterLogic.UITestStateSnapshotComposer` with mirrored tests, leaving `ViewController` to forward current state values instead of building snapshot structs inline.

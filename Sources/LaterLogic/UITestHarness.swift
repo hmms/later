@@ -101,6 +101,24 @@ public struct UITestStateSnapshot: Equatable {
     }
 }
 
+public enum UITestStateSnapshotComposer {
+    public static func makeSnapshot(
+        hasSession: Bool,
+        savedAppCount: Int,
+        timerScheduled: Bool,
+        globalShortcutsDisabled: Bool,
+        launchAtLoginEnabled: Bool
+    ) -> UITestStateSnapshot {
+        UITestStateSnapshot(
+            hasSession: hasSession,
+            savedAppCount: savedAppCount,
+            timerScheduled: timerScheduled,
+            globalShortcutsDisabled: globalShortcutsDisabled,
+            launchAtLoginEnabled: launchAtLoginEnabled
+        )
+    }
+}
+
 public enum UITestStateEncoder {
     public static func encode(_ snapshot: UITestStateSnapshot) throws -> Data {
         let payload: [String: Any] = [

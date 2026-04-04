@@ -675,7 +675,7 @@ class ViewController: NSViewController {
         }
 
         do {
-            let snapshot = UITestStateSnapshot(
+            let snapshot = UITestStateSnapshotComposer.makeSnapshot(
                 hasSession: appViewModel.hasSession,
                 savedAppCount: appViewModel.savedSessionApps.count,
                 timerScheduled: UITestStateStore.isTimerScheduled(),

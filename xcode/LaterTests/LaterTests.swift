@@ -454,6 +454,23 @@ struct UITestHarnessTests {
         #expect(object["launchAtLoginEnabled"] as? Bool == false)
     }
 
+    @Test("State snapshot composer preserves passed values")
+    func stateSnapshotComposerPreservesValues() {
+        let snapshot = UITestStateSnapshotComposer.makeSnapshot(
+            hasSession: false,
+            savedAppCount: 4,
+            timerScheduled: true,
+            globalShortcutsDisabled: true,
+            launchAtLoginEnabled: false
+        )
+
+        #expect(!snapshot.hasSession)
+        #expect(snapshot.savedAppCount == 4)
+        #expect(snapshot.timerScheduled)
+        #expect(snapshot.globalShortcutsDisabled)
+        #expect(!snapshot.launchAtLoginEnabled)
+    }
+
     @Test("State store round-trips timer scheduled flag")
     func stateStoreRoundTripTimerFlag() {
         let suiteName = "UITestStateStoreTests.\(UUID().uuidString)"
