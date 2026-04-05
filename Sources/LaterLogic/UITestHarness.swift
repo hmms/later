@@ -85,19 +85,22 @@ public struct UITestStateSnapshot: Equatable {
     public let timerScheduled: Bool
     public let globalShortcutsDisabled: Bool
     public let launchAtLoginEnabled: Bool
+    public let swiftUIPopoverActive: Bool
 
     public init(
         hasSession: Bool,
         savedAppCount: Int,
         timerScheduled: Bool,
         globalShortcutsDisabled: Bool,
-        launchAtLoginEnabled: Bool
+        launchAtLoginEnabled: Bool,
+        swiftUIPopoverActive: Bool = false
     ) {
         self.hasSession = hasSession
         self.savedAppCount = savedAppCount
         self.timerScheduled = timerScheduled
         self.globalShortcutsDisabled = globalShortcutsDisabled
         self.launchAtLoginEnabled = launchAtLoginEnabled
+        self.swiftUIPopoverActive = swiftUIPopoverActive
     }
 }
 
@@ -107,14 +110,16 @@ public enum UITestStateSnapshotComposer {
         savedAppCount: Int,
         timerScheduled: Bool,
         globalShortcutsDisabled: Bool,
-        launchAtLoginEnabled: Bool
+        launchAtLoginEnabled: Bool,
+        swiftUIPopoverActive: Bool = false
     ) -> UITestStateSnapshot {
         UITestStateSnapshot(
             hasSession: hasSession,
             savedAppCount: savedAppCount,
             timerScheduled: timerScheduled,
             globalShortcutsDisabled: globalShortcutsDisabled,
-            launchAtLoginEnabled: launchAtLoginEnabled
+            launchAtLoginEnabled: launchAtLoginEnabled,
+            swiftUIPopoverActive: swiftUIPopoverActive
         )
     }
 }
@@ -127,6 +132,7 @@ public enum UITestStateEncoder {
             "timerScheduled": snapshot.timerScheduled,
             "globalShortcutsDisabled": snapshot.globalShortcutsDisabled,
             "launchAtLoginEnabled": snapshot.launchAtLoginEnabled,
+            "swiftUIPopoverActive": snapshot.swiftUIPopoverActive,
         ]
         return try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
     }

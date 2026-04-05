@@ -67,10 +67,18 @@ struct MainPopoverViewState: Equatable {
 
 struct MainPopoverView: View {
     let state: MainPopoverViewState
+    var shortcutsMenuTitle = "Disable all shortcuts"
     var onSave: () -> Void = {}
     var onRestore: () -> Void = {}
     var onCancelTimer: () -> Void = {}
-    var onOpenSettings: () -> Void = {}
+    var onToggleCloseAppsOnRestore: () -> Void = {}
+    var onToggleQuitAppsInsteadOfHiding: () -> Void = {}
+    var onToggleWaitBeforeRestore: () -> Void = {}
+    var onToggleIgnoreSystemWindows: () -> Void = {}
+    var onToggleLaunchAtLogin: () -> Void = {}
+    var onOpenWebsite: () -> Void = {}
+    var onToggleShortcuts: () -> Void = {}
+    var onQuitApp: () -> Void = {}
 
     var body: some View {
         VStack(spacing: 18) {
@@ -80,7 +88,7 @@ struct MainPopoverView: View {
             saveButton
         }
         .padding(18)
-        .frame(width: 340)
+        .frame(width: 340, alignment: .top)
         .background(Color(nsColor: NSColor(calibratedWhite: 0.15, alpha: 1)))
     }
 
@@ -95,7 +103,12 @@ struct MainPopoverView: View {
                 .foregroundStyle(Color.white.opacity(0.65))
                 .accessibilityIdentifier("mainPopoverVersion")
             Spacer()
-            Button(action: onOpenSettings) {
+            Menu {
+                Button("Visit website", action: onOpenWebsite)
+                Button(shortcutsMenuTitle, action: onToggleShortcuts)
+                Divider()
+                Button("Quit", action: onQuitApp)
+            } label: {
                 Image(systemName: "gearshape.fill")
                     .font(.system(size: 20))
                     .foregroundStyle(Color.white.opacity(0.75))
@@ -181,10 +194,10 @@ struct MainPopoverView: View {
 
     private var settingsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            settingsRow("Close all apps when restoring", isOn: state.closeAppsOnRestore)
-            settingsRow("Quit apps instead of hiding", isOn: state.quitAppsInsteadOfHiding)
+            settingsRow("Close all apps when restoring", isOn: state.closeAppsOnRestore, action: onToggleCloseAppsOnRestore)
+            settingsRow("Quit apps instead of hiding", isOn: state.quitAppsInsteadOfHiding, action: onToggleQuitAppsInsteadOfHiding)
             HStack {
-                settingsRow("Reopen windows in", isOn: state.waitBeforeRestore)
+                settingsRow("Reopen windows in", isOn: state.waitBeforeRestore, action: onToggleWaitBeforeRestore)
                 Spacer(minLength: 8)
                 Text(state.timerDuration)
                     .font(.system(size: 13, weight: .medium))
@@ -196,8 +209,8 @@ struct MainPopoverView: View {
                             .fill(Color.white.opacity(0.12))
                     )
             }
-            settingsRow("Ignore system windows", isOn: state.ignoreSystemWindows)
-            settingsRow("Start at login", isOn: state.launchAtLogin)
+            settingsRow("Ignore system windows", isOn: state.ignoreSystemWindows, action: onToggleIgnoreSystemWindows)
+            settingsRow("Start at login", isOn: state.launchAtLogin, action: onToggleLaunchAtLogin)
         }
         .padding(18)
         .background(
@@ -206,14 +219,18 @@ struct MainPopoverView: View {
         )
     }
 
-    private func settingsRow(_ title: String, isOn: Bool) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: isOn ? "checkmark.square.fill" : "square.fill")
-                .foregroundStyle(isOn ? Color(red: 0.26, green: 0.52, blue: 0.98) : Color.white.opacity(0.35))
-            Text(title)
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.white)
+    private func settingsRow(_ title: String, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: isOn ? "checkmark.square.fill" : "square.fill")
+                    .foregroundStyle(isOn ? Color(red: 0.26, green: 0.52, blue: 0.98) : Color.white.opacity(0.35))
+                Text(title)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.white)
+                Spacer(minLength: 0)
+            }
         }
+        .buttonStyle(.plain)
     }
 
     private var saveButton: some View {

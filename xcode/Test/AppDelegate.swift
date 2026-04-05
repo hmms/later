@@ -81,16 +81,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let popoverView = NSPopover()
     var eventMonitor: EventMonitor?
     private var settings = SettingsStore()
+    private let appFilter = AppFilterService()
+    private let lifecycleAdapter = AppLifecycleAdapter()
     private var saveHotKey: HotKey?
     private var restoreHotKey: HotKey?
     private let launchAtLoginAdapter = LaunchAtLoginAdapter()
+    private lazy var sessionRuntime = SessionRuntimeCoordinator(
+        appFilter: appFilter,
+        currentBundleIdentifier: Bundle.main.bundleIdentifier
+    )
+    private var swiftUIPopoverHostingController: NSHostingController<MainPopoverView>?
+    private var swiftUIPopoverViewModel: AppViewModel?
     private var saveShortcutHandler: (() -> Void)?
     private var restoreShortcutHandler: (() -> Void)?
     private var isUITestMode: Bool {
         ProcessInfo.processInfo.arguments.contains("UITEST_MODE")
     }
+    private var isUITestStubMode: Bool {
+        ProcessInfo.processInfo.arguments.contains("UITEST_STUB_SESSION")
+    }
     private var shouldResetUITestDefaults: Bool {
         ProcessInfo.processInfo.arguments.contains("UITEST_RESET_DEFAULTS")
+    }
+    private var uiTestStateFileURL: URL? {
+        guard let path = ProcessInfo.processInfo.environment["UITEST_STATE_FILE"], !path.isEmpty else {
+            return nil
+        }
+        return URL(fileURLWithPath: path)
     }
     private var shouldUseSwiftUIPopover: Bool {
         let processInfo = ProcessInfo.processInfo
@@ -103,6 +120,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         return value == "1" || value == "true" || value == "yes"
     }
+    private struct StubSessionApp {
+        let localizedName: String
+        let bundleIdentifier: String
+        let bundleURLString: String
+    }
+    private let uiTestStubApps: [StubSessionApp] = [
+        StubSessionApp(
+            localizedName: "Safari",
+            bundleIdentifier: "com.apple.Safari",
+            bundleURLString: "file:///Applications/Safari.app"
+        ),
+        StubSessionApp(
+            localizedName: "Xcode",
+            bundleIdentifier: "com.apple.dt.Xcode",
+            bundleURLString: "file:///Applications/Xcode.app"
+        ),
+        StubSessionApp(
+            localizedName: "Finder",
+            bundleIdentifier: "com.apple.finder",
+            bundleURLString: "file:///System/Library/CoreServices/Finder.app"
+        ),
+    ]
      
     @MainActor
     func runApp() {
@@ -131,22 +170,64 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Phase 2 seam: keep launch behavior on the storyboard controller until SwiftUI parity is verified.
     @MainActor
     private func makeSwiftUIPopoverContentViewController() -> NSViewController {
-        let viewModel = AppViewModel(
-            settingsStore: settings,
-            launchAtLoginEnabled: launchAtLoginEnabled(isUITestMode: isUITestMode)
-        )
-        let state = MainPopoverViewState(
-            snapshot: viewModel.mainPopoverSnapshot,
-            appVersion: currentAppVersionText()
-        )
-        let hostingController = NSHostingController(rootView: MainPopoverView(state: state))
-        hostingController.view.frame = NSRect(x: 0, y: 0, width: 340, height: 520)
+        let hostingController = swiftUIPopoverHostingController ?? NSHostingController(rootView: makeSwiftUIPopoverRootView())
+        let contentSize = NSSize(width: 340, height: 620)
+        hostingController.view.frame = NSRect(origin: .zero, size: contentSize)
+        hostingController.preferredContentSize = contentSize
+        swiftUIPopoverHostingController = hostingController
+        refreshSwiftUIPopoverContent()
         return hostingController
     }
 
     private func currentAppVersionText() -> String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         return version.map { "v\($0)" } ?? "Later"
+    }
+
+    @MainActor
+    private func swiftUIViewModel() -> AppViewModel {
+        if let swiftUIPopoverViewModel {
+            swiftUIPopoverViewModel.refreshFromSettings(
+                launchAtLoginEnabled: launchAtLoginEnabled(isUITestMode: isUITestMode)
+            )
+            return swiftUIPopoverViewModel
+        }
+
+        let viewModel = AppViewModel(
+            settingsStore: settings,
+            launchAtLoginEnabled: launchAtLoginEnabled(isUITestMode: isUITestMode)
+        )
+        swiftUIPopoverViewModel = viewModel
+        return viewModel
+    }
+
+    @MainActor
+    private func makeSwiftUIPopoverRootView() -> MainPopoverView {
+        let viewModel = swiftUIViewModel()
+        let state = MainPopoverViewState(
+            snapshot: viewModel.mainPopoverSnapshot,
+            appVersion: currentAppVersionText()
+        )
+        return MainPopoverView(
+            state: state,
+            shortcutsMenuTitle: shortcutsDisabled ? "Enable all shortcuts" : "Disable all shortcuts",
+            onSave: { [weak self] in self?.saveSessionFromSwiftUI() },
+            onRestore: { [weak self] in self?.restoreSessionFromSwiftUI() },
+            onCancelTimer: { [weak self] in self?.cancelRestoreTimerFromSwiftUI() },
+            onToggleCloseAppsOnRestore: { [weak self] in self?.toggleCloseAppsOnRestoreFromSwiftUI() },
+            onToggleQuitAppsInsteadOfHiding: { [weak self] in self?.toggleQuitAppsInsteadOfHidingFromSwiftUI() },
+            onToggleWaitBeforeRestore: { [weak self] in self?.toggleWaitBeforeRestoreFromSwiftUI() },
+            onToggleIgnoreSystemWindows: { [weak self] in self?.toggleIgnoreSystemWindowsFromSwiftUI() },
+            onToggleLaunchAtLogin: { [weak self] in self?.toggleLaunchAtLoginFromSwiftUI() },
+            onOpenWebsite: { [weak self] in self?.openWebsite() },
+            onToggleShortcuts: { [weak self] in self?.toggleShortcutsFromMenu() },
+            onQuitApp: { NSApp.terminate(nil) }
+        )
+    }
+
+    @MainActor
+    private func refreshSwiftUIPopoverContent() {
+        swiftUIPopoverHostingController?.rootView = makeSwiftUIPopoverRootView()
     }
 
     @MainActor
@@ -163,6 +244,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.activate(ignoringOtherApps: true)
         }
         refreshHotKeyRegistration()
+        writeUITestStateSnapshotIfNeeded()
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -194,6 +276,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func closePopover(_ sender: AnyObject?) {
         popoverView.performClose(sender)
         eventMonitor?.stop()
+    }
+
+    @objc private func openWebsite() {
+        guard let url = URL(string: "https://twitter.com/alyssaxuu") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
+    }
+
+    @objc private func toggleShortcutsFromMenu() {
+        setShortcutsDisabled(!shortcutsDisabled)
+        Task { @MainActor in
+            self.refreshSwiftUIPopoverContent()
+            self.writeUITestStateSnapshotIfNeeded()
+        }
     }
 
     func configureShortcutHandlers(
@@ -254,6 +351,241 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         restoreHotKey = HotKey(key: .r, modifiers: [.command, .shift])
         restoreHotKey?.keyDownHandler = { [weak self] in
             self?.restoreShortcutHandler?()
+        }
+    }
+
+    private func currentDateString() -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .medium
+        formatter.dateStyle = .medium
+        return formatter.string(from: Date())
+    }
+
+    private func closePopoverIfNeeded() {
+        if !isUITestMode {
+            closePopover(self)
+        }
+    }
+
+    @MainActor
+    private func swiftUIStubSessionAppsForSave(viewModel: AppViewModel) -> [StubSessionApp] {
+        let ignoreSystemApps = viewModel.ignoreSystemApps
+        return uiTestStubApps.filter { app in
+            !appFilter.shouldIgnore(
+                bundleID: app.bundleIdentifier,
+                ignoreSystemApps: ignoreSystemApps
+            )
+        }
+    }
+
+    @MainActor
+    private func saveSessionFromSwiftUI() {
+        let viewModel = swiftUIViewModel()
+        let ignoreSystemApps = viewModel.ignoreSystemApps
+        var capturedApps = [SessionCapturedApp]()
+        var lastStateWasTerminate = false
+        let action = SessionSavePlanner.actionForSave(
+            quitAppsInsteadOfHiding: !viewModel.keepWindowsOpen
+        )
+        let sideEffectsPlan = SessionSaveSideEffectsPlanner.makePlan(isUITestStubMode: isUITestStubMode)
+        lifecycleAdapter.applyPreSaveEffects(plan: sideEffectsPlan)
+
+        if isUITestStubMode {
+            for runningApplication in swiftUIStubSessionAppsForSave(viewModel: viewModel) {
+                capturedApps.append(
+                    SessionCapturedApp(
+                        localizedName: runningApplication.localizedName,
+                        bundleIdentifier: runningApplication.bundleIdentifier,
+                        bundleURLString: runningApplication.bundleURLString
+                    )
+                )
+            }
+            lastStateWasTerminate = SessionSavePlanner.lastStateWasTerminate(
+                capturedApps: capturedApps,
+                action: action
+            )
+        } else {
+            let trackedApplications = sessionRuntime.trackableRunningApps(
+                includeTerminal: true,
+                includeLater: false,
+                ignoreSystemApps: ignoreSystemApps
+            )
+            for runningApplication in trackedApplications {
+                capturedApps.append(
+                    SessionCapturedApp(
+                        localizedName: runningApplication.localizedName ?? "",
+                        bundleIdentifier: runningApplication.bundleIdentifier,
+                        bundleURLString: runningApplication.bundleURL?.absoluteString
+                    )
+                )
+            }
+            lastStateWasTerminate = sessionRuntime.applySavedAppAction(action, to: trackedApplications)
+        }
+
+        lifecycleAdapter.applyPostSaveEffects(plan: sideEffectsPlan)
+
+        let snapshotDraft = SessionSavePlanner.makeDraft(from: capturedApps)
+        let snapshot = SessionSnapshotComposer.makeSnapshot(
+            draft: snapshotDraft,
+            sessionDate: currentDateString(),
+            lastStateWasTerminate: lastStateWasTerminate
+        )
+        viewModel.saveSessionSnapshot(snapshot)
+
+        if viewModel.waitBeforeRestore {
+            scheduleRestoreTimerFromSwiftUI()
+        }
+
+        refreshSwiftUIPopoverContent()
+        writeUITestStateSnapshotIfNeeded()
+        closePopoverIfNeeded()
+    }
+
+    @MainActor
+    private func scheduleRestoreTimerFromSwiftUI() {
+        let viewModel = swiftUIViewModel()
+        viewModel.scheduleRestoreTimer(
+            durationOption: viewModel.selectedTimerDuration,
+            onTick: { [weak self] _ in
+                Task { @MainActor in
+                    self?.refreshSwiftUIPopoverContent()
+                    self?.writeUITestStateSnapshotIfNeeded()
+                }
+            },
+            onComplete: { [weak self] in
+                Task { @MainActor in
+                    self?.restoreSessionFromSwiftUI()
+                }
+            }
+        )
+        if isUITestMode {
+            UITestStateStore.setTimerScheduled(true)
+        }
+    }
+
+    @MainActor
+    private func cancelRestoreTimerFromSwiftUI() {
+        let viewModel = swiftUIViewModel()
+        viewModel.cancelRestoreTimer()
+        if isUITestMode {
+            UITestStateStore.setTimerScheduled(false)
+        }
+        refreshSwiftUIPopoverContent()
+        writeUITestStateSnapshotIfNeeded()
+    }
+
+    @MainActor
+    private func toggleCloseAppsOnRestoreFromSwiftUI() {
+        let viewModel = swiftUIViewModel()
+        viewModel.setCloseAppsOnRestore(!viewModel.closeAppsOnRestore)
+        refreshSwiftUIPopoverContent()
+        writeUITestStateSnapshotIfNeeded()
+    }
+
+    @MainActor
+    private func toggleQuitAppsInsteadOfHidingFromSwiftUI() {
+        let viewModel = swiftUIViewModel()
+        let nextQuitAppsInsteadOfHiding = !viewModel.keepWindowsOpen
+        viewModel.setKeepWindowsOpen(nextQuitAppsInsteadOfHiding)
+        refreshSwiftUIPopoverContent()
+        writeUITestStateSnapshotIfNeeded()
+    }
+
+    @MainActor
+    private func toggleWaitBeforeRestoreFromSwiftUI() {
+        let viewModel = swiftUIViewModel()
+        let nextValue = !viewModel.waitBeforeRestore
+        viewModel.setWaitBeforeRestore(nextValue)
+        if !nextValue, isUITestMode {
+            UITestStateStore.setTimerScheduled(false)
+        }
+        refreshSwiftUIPopoverContent()
+        writeUITestStateSnapshotIfNeeded()
+    }
+
+    @MainActor
+    private func toggleIgnoreSystemWindowsFromSwiftUI() {
+        let viewModel = swiftUIViewModel()
+        viewModel.setIgnoreSystemApps(!viewModel.ignoreSystemApps)
+        refreshSwiftUIPopoverContent()
+        writeUITestStateSnapshotIfNeeded()
+    }
+
+    @MainActor
+    private func toggleLaunchAtLoginFromSwiftUI() {
+        let viewModel = swiftUIViewModel()
+        let nextValue = !viewModel.launchAtLogin
+        setLaunchAtLoginEnabled(nextValue, isUITestMode: isUITestMode)
+        viewModel.setLaunchAtLogin(nextValue)
+        refreshSwiftUIPopoverContent()
+        writeUITestStateSnapshotIfNeeded()
+    }
+
+    @MainActor
+    private func restoreSessionFromSwiftUI() {
+        let viewModel = swiftUIViewModel()
+        let ignoreSystemApps = viewModel.ignoreSystemApps
+        viewModel.cancelRestoreTimer()
+        if isUITestMode {
+            UITestStateStore.setTimerScheduled(false)
+        }
+
+        let apps = viewModel.savedSessionApps
+        let executables = viewModel.savedSessionURLs
+
+        let restorePlan = SessionRestorePlanner.makePlan(
+            isUITestStubMode: isUITestStubMode,
+            closeAppsOnRestore: viewModel.closeAppsOnRestore,
+            appNames: apps,
+            appURLs: executables
+        )
+
+        if let preRestoreAction = restorePlan.preRestoreAction {
+            let runningApps = sessionRuntime.trackableRunningApps(
+                includeTerminal: false,
+                includeLater: true,
+                ignoreSystemApps: ignoreSystemApps
+            )
+            _ = sessionRuntime.applySavedAppAction(preRestoreAction, to: runningApps)
+        }
+
+        if restorePlan.shouldRestoreApps {
+            if !isUITestStubMode {
+                sessionRuntime.restoreSavedApps(names: apps, urls: executables)
+            }
+            viewModel.clearActiveSession()
+        }
+
+        refreshSwiftUIPopoverContent()
+        writeUITestStateSnapshotIfNeeded()
+        closePopoverIfNeeded()
+    }
+
+    @MainActor
+    private func writeUITestStateSnapshotIfNeeded() {
+        guard isUITestMode, shouldUseSwiftUIPopover, let url = uiTestStateFileURL else {
+            return
+        }
+
+        let viewModel = AppViewModel(
+            settingsStore: settings,
+            launchAtLoginEnabled: launchAtLoginEnabled(isUITestMode: isUITestMode)
+        )
+        let popoverSnapshot = viewModel.mainPopoverSnapshot
+        let savedAppCount = Int(popoverSnapshot.sessionCountText) ?? settings.savedAppNames.count
+        let snapshot = UITestStateSnapshotComposer.makeSnapshot(
+            hasSession: popoverSnapshot.hasSession,
+            savedAppCount: savedAppCount,
+            timerScheduled: popoverSnapshot.timerLabel != nil || UITestStateStore.isTimerScheduled(),
+            globalShortcutsDisabled: settings.globalShortcutsDisabled,
+            launchAtLoginEnabled: launchAtLoginEnabled(isUITestMode: isUITestMode),
+            swiftUIPopoverActive: true
+        )
+
+        do {
+            try UITestStateWriter.write(snapshot, to: url)
+        } catch {
+            print("Failed to write UI test snapshot: \(error)")
         }
     }
     

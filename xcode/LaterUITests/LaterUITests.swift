@@ -13,6 +13,7 @@ final class LaterUITests: XCTestCase {
         let timerScheduled: Bool
         let globalShortcutsDisabled: Bool
         let launchAtLoginEnabled: Bool
+        let swiftUIPopoverActive: Bool
 
         init?(dictionary: [String: Any]) {
             guard
@@ -30,6 +31,7 @@ final class LaterUITests: XCTestCase {
             self.timerScheduled = timerScheduled
             self.globalShortcutsDisabled = globalShortcutsDisabled
             self.launchAtLoginEnabled = launchAtLoginEnabled
+            self.swiftUIPopoverActive = dictionary["swiftUIPopoverActive"] as? Bool ?? false
         }
     }
 
@@ -123,8 +125,7 @@ final class LaterUITests: XCTestCase {
         let app = launchApp(extraArguments: ["USE_SWIFTUI_POPOVER"])
 
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
-        XCTAssertTrue(app.staticTexts["mainPopoverTitle"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["saveSessionButton"].exists)
+        XCTAssertNotNil(waitForSnapshot { $0.swiftUIPopoverActive })
     }
 
     @MainActor

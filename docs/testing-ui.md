@@ -60,6 +60,9 @@ Current smoke coverage also includes a gated SwiftUI-host launch path check usin
 - `timerScheduled: Bool`
 - `globalShortcutsDisabled: Bool`
 - `launchAtLoginEnabled: Bool`
+- `swiftUIPopoverActive: Bool`
+
+When the gated SwiftUI host path is enabled, `AppDelegate` now writes the same snapshot schema so UI tests can validate that path without depending on menubar popover accessibility queries.
 
 ## Current high-value scenarios covered
 
