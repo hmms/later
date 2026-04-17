@@ -82,6 +82,14 @@ struct SessionRulesTests {
         #expect(SessionRules.reopenDelaySeconds(for: "5 hours") == 18000)
     }
 
+    @Test("Timer duration options stay aligned with supported delay mapping")
+    func timerDurationOptionsMatchMapping() {
+        #expect(SessionRules.reopenDurationOptions == ["15 minutes", "30 minutes", "1 hour", "5 hours"])
+        for option in SessionRules.reopenDurationOptions {
+            #expect(SessionRules.reopenDelaySeconds(for: option) > 10)
+        }
+    }
+
     @Test("Unknown timer option falls back to 10 seconds")
     func timerOptionFallback() {
         #expect(SessionRules.reopenDelaySeconds(for: "unknown") == 10)
@@ -425,6 +433,7 @@ struct UITestHarnessTests {
         #expect(object["timerScheduled"] as? Bool == true)
         #expect(object["globalShortcutsDisabled"] as? Bool == false)
         #expect(object["launchAtLoginEnabled"] as? Bool == true)
+        #expect(object["popoverHeight"] == nil)
     }
 
     @Test("State writer persists snapshot JSON to disk")
@@ -452,6 +461,7 @@ struct UITestHarnessTests {
         #expect(object["timerScheduled"] as? Bool == false)
         #expect(object["globalShortcutsDisabled"] as? Bool == true)
         #expect(object["launchAtLoginEnabled"] as? Bool == false)
+        #expect(object["popoverHeight"] == nil)
     }
 
     @Test("State snapshot composer preserves passed values")
@@ -469,6 +479,7 @@ struct UITestHarnessTests {
         #expect(snapshot.timerScheduled)
         #expect(snapshot.globalShortcutsDisabled)
         #expect(!snapshot.launchAtLoginEnabled)
+        #expect(snapshot.popoverHeight == nil)
     }
 
     @Test("State store round-trips timer scheduled flag")

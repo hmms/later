@@ -34,7 +34,7 @@ This checklist operationalizes [swiftui-migration-plan_v2.md](./swiftui-migratio
 - [/] Build `MainPopoverView` in SwiftUI with parity layout sections.
 - [/] Host SwiftUI view with `NSHostingController` in `AppDelegate`.
 - [ ] Keep existing `NSStatusItem` + `NSPopover` lifecycle unchanged.
-- [ ] Validate popover sizing behavior for timer visibility transitions.
+- [x] Validate popover sizing behavior for timer visibility transitions.
 - [ ] Validate popover background appearance with SwiftUI content.
 - [ ] Keep `EventMonitor` behavior parity.
 
@@ -132,3 +132,7 @@ Use this sequence to keep architecture changes small, reviewable, and reversible
 - 2026-04-03: Added a reversible `USE_SWIFTUI_POPOVER` / `LATER_USE_SWIFTUI_POPOVER=1` gate in `AppDelegate`, so the SwiftUI host path can be exercised intentionally while the default app launch path remains storyboard-backed.
 - 2026-04-03: Added SwiftUI-popover accessibility identifiers and a `LaterUITests` smoke test that launches through `USE_SWIFTUI_POPOVER`, giving Phase 2 a basic gated-host validation path without switching the default UI implementation.
 - 2026-04-03: Switched the gated SwiftUI smoke path to snapshot-based validation by having `AppDelegate` emit UITest snapshot state for the SwiftUI host path, avoiding unreliable menubar accessibility scraping while preserving the reversible gate.
+- 2026-04-03: Made the SwiftUI timer duration control interactive via a menu in `MainPopoverView`, wired to `AppViewModel.selectedTimerDuration` through `AppDelegate` so the gated SwiftUI host matches AppKit timer-selection behavior.
+- 2026-04-03: Resolved SwiftUI timer-duration parity mismatch by sourcing menu options from `SessionRules.reopenDurationOptions` (`5 hours` included), adding guarded selection handling in `AppDelegate`, and adding mirrored tests to keep menu options aligned with delay mapping.
+- 2026-04-05: Wired the gated SwiftUI host to run the existing `UITEST_*` action plan directly in `AppDelegate`, connected SwiftUI-path hotkey handlers, and made the hosted popover resize between compact and timer-visible heights based on live `AppViewModel` state.
+- 2026-04-05: Added a SwiftUI-host UITest that verifies the popover grows when the restore timer appears and shrinks again after cancellation, and validated both `LaterTests` and `LaterUITests` on macOS.

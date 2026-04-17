@@ -76,6 +76,11 @@ final class LaunchAtLoginAdapter {
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
+    private enum SwiftUIPopoverLayout {
+        static let width: CGFloat = 340
+        static let compactHeight: CGFloat = 580
+        static let timerVisibleHeight: CGFloat = 620
+    }
 
     let statusItem = NSStatusBar.system.statusItem(withLength: 20)
     let popoverView = NSPopover()
@@ -171,9 +176,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     private func makeSwiftUIPopoverContentViewController() -> NSViewController {
         let hostingController = swiftUIPopoverHostingController ?? NSHostingController(rootView: makeSwiftUIPopoverRootView())
-        let contentSize = NSSize(width: 340, height: 620)
-        hostingController.view.frame = NSRect(origin: .zero, size: contentSize)
-        hostingController.preferredContentSize = contentSize
         swiftUIPopoverHostingController = hostingController
         refreshSwiftUIPopoverContent()
         return hostingController
@@ -202,10 +204,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
-    private func makeSwiftUIPopoverRootView() -> MainPopoverView {
+    private func makeSwiftUIPopoverRootView(snapshot: MainPopoverSnapshot? = nil) -> MainPopoverView {
         let viewModel = swiftUIViewModel()
+        let popoverSnapshot = snapshot ?? viewModel.mainPopoverSnapshot
         let state = MainPopoverViewState(
-            snapshot: viewModel.mainPopoverSnapshot,
+            snapshot: popoverSnapshot,
             appVersion: currentAppVersionText()
         )
         return MainPopoverView(
@@ -214,6 +217,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onSave: { [weak self] in self?.saveSessionFromSwiftUI() },
             onRestore: { [weak self] in self?.restoreSessionFromSwiftUI() },
             onCancelTimer: { [weak self] in self?.cancelRestoreTimerFromSwiftUI() },
+            onSelectTimerDuration: { [weak self] option in self?.setTimerDurationFromSwiftUI(option) },
             onToggleCloseAppsOnRestore: { [weak self] in self?.toggleCloseAppsOnRestoreFromSwiftUI() },
             onToggleQuitAppsInsteadOfHiding: { [weak self] in self?.toggleQuitAppsInsteadOfHidingFromSwiftUI() },
             onToggleWaitBeforeRestore: { [weak self] in self?.toggleWaitBeforeRestoreFromSwiftUI() },
@@ -227,7 +231,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     private func refreshSwiftUIPopoverContent() {
-        swiftUIPopoverHostingController?.rootView = makeSwiftUIPopoverRootView()
+        let viewModel = swiftUIViewModel()
+        let snapshot = viewModel.mainPopoverSnapshot
+        let contentSize = swiftUIPopoverContentSize(for: snapshot)
+        swiftUIPopoverHostingController?.rootView = makeSwiftUIPopoverRootView(snapshot: snapshot)
+        applySwiftUIPopoverContentSize(contentSize)
+    }
+
+    private func swiftUIPopoverContentSize(for snapshot: MainPopoverSnapshot) -> NSSize {
+        let height = snapshot.timerLabel == nil
+            ? SwiftUIPopoverLayout.compactHeight
+            : SwiftUIPopoverLayout.timerVisibleHeight
+        return NSSize(width: SwiftUIPopoverLayout.width, height: height)
+    }
+
+    @MainActor
+    private func applySwiftUIPopoverContentSize(_ contentSize: NSSize) {
+        swiftUIPopoverHostingController?.view.frame = NSRect(origin: .zero, size: contentSize)
+        swiftUIPopoverHostingController?.preferredContentSize = contentSize
+        popoverView.contentSize = contentSize
     }
 
     @MainActor
@@ -238,12 +260,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSApp.setActivationPolicy(isUITestMode ? .regular : .accessory)
         runApp();
+        if shouldUseSwiftUIPopover {
+            configureShortcutHandlers(
+                onSave: { [weak self] in
+                    Task { @MainActor in
+                        self?.saveSessionFromSwiftUI()
+                    }
+                },
+                onRestore: { [weak self] in
+                    Task { @MainActor in
+                        self?.restoreSessionFromSwiftUI()
+                    }
+                }
+            )
+        }
         
         if isUITestMode {
             showPopover(nil)
             NSApp.activate(ignoringOtherApps: true)
         }
         refreshHotKeyRegistration()
+        if isUITestMode && shouldUseSwiftUIPopover {
+            runSwiftUIUITestHooks()
+        }
         writeUITestStateSnapshotIfNeeded()
     }
 
@@ -368,6 +407,52 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
+    private func runSwiftUIUITestHooks() {
+        let hooks = UITestHooks(arguments: ProcessInfo.processInfo.arguments)
+        let actions = UITestActionPlan.makeActions(from: hooks)
+
+        for action in actions {
+            handleSwiftUIUITestAction(action)
+        }
+
+        writeUITestStateSnapshotIfNeeded()
+    }
+
+    @MainActor
+    private func handleSwiftUIUITestAction(_ action: UITestAction) {
+        switch action {
+        case .enableWait:
+            let viewModel = swiftUIViewModel()
+            if !viewModel.waitBeforeRestore {
+                toggleWaitBeforeRestoreFromSwiftUI()
+            }
+        case .disableShortcuts:
+            applyShortcutsDisabledFromSwiftUI(true)
+        case .enableShortcuts:
+            applyShortcutsDisabledFromSwiftUI(false)
+        case .toggleLaunchAtLogin:
+            toggleLaunchAtLoginFromSwiftUI()
+        case .triggerSave:
+            saveSessionFromSwiftUI()
+        case .triggerShortcutSave:
+            triggerSaveShortcutForTesting()
+        case .triggerShortcutRestore:
+            triggerRestoreShortcutForTesting()
+        case .triggerRestore:
+            restoreSessionFromSwiftUI()
+        case .triggerCancelTimer:
+            cancelRestoreTimerFromSwiftUI()
+        }
+    }
+
+    @MainActor
+    private func applyShortcutsDisabledFromSwiftUI(_ disabled: Bool) {
+        setShortcutsDisabled(disabled)
+        refreshSwiftUIPopoverContent()
+        writeUITestStateSnapshotIfNeeded()
+    }
+
+    @MainActor
     private func swiftUIStubSessionAppsForSave(viewModel: AppViewModel) -> [StubSessionApp] {
         let ignoreSystemApps = viewModel.ignoreSystemApps
         return uiTestStubApps.filter { app in
@@ -475,6 +560,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
+    private func setTimerDurationFromSwiftUI(_ option: String) {
+        guard SessionRules.reopenDurationOptions.contains(option) else {
+            return
+        }
+        let viewModel = swiftUIViewModel()
+        viewModel.refreshSelectedTimerDuration(option)
+        refreshSwiftUIPopoverContent()
+        writeUITestStateSnapshotIfNeeded()
+    }
+
+    @MainActor
     private func toggleCloseAppsOnRestoreFromSwiftUI() {
         let viewModel = swiftUIViewModel()
         viewModel.setCloseAppsOnRestore(!viewModel.closeAppsOnRestore)
@@ -567,19 +663,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        let viewModel = AppViewModel(
-            settingsStore: settings,
-            launchAtLoginEnabled: launchAtLoginEnabled(isUITestMode: isUITestMode)
-        )
+        let viewModel = swiftUIViewModel()
         let popoverSnapshot = viewModel.mainPopoverSnapshot
         let savedAppCount = Int(popoverSnapshot.sessionCountText) ?? settings.savedAppNames.count
+        let popoverContentSize = swiftUIPopoverContentSize(for: popoverSnapshot)
         let snapshot = UITestStateSnapshotComposer.makeSnapshot(
             hasSession: popoverSnapshot.hasSession,
             savedAppCount: savedAppCount,
             timerScheduled: popoverSnapshot.timerLabel != nil || UITestStateStore.isTimerScheduled(),
             globalShortcutsDisabled: settings.globalShortcutsDisabled,
             launchAtLoginEnabled: launchAtLoginEnabled(isUITestMode: isUITestMode),
-            swiftUIPopoverActive: true
+            swiftUIPopoverActive: true,
+            popoverHeight: Int(popoverContentSize.height)
         )
 
         do {

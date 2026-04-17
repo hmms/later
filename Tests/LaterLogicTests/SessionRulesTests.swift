@@ -82,6 +82,14 @@ struct SessionRulesTests {
         #expect(SessionRules.reopenDelaySeconds(for: "5 hours") == 18000)
     }
 
+    @Test("Timer duration options stay aligned with supported delay mapping")
+    func timerDurationOptionsMatchMapping() {
+        #expect(SessionRules.reopenDurationOptions == ["15 minutes", "30 minutes", "1 hour", "5 hours"])
+        for option in SessionRules.reopenDurationOptions {
+            #expect(SessionRules.reopenDelaySeconds(for: option) > 10)
+        }
+    }
+
     @Test("Unknown timer option falls back to 10 seconds")
     func timerOptionFallback() {
         #expect(SessionRules.reopenDelaySeconds(for: "unknown") == 10)

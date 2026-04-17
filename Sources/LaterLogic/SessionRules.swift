@@ -14,6 +14,13 @@ public enum SessionRules {
         "com.apple.AppStore"
     ]
 
+    public static let reopenDurationOptions: [String] = [
+        "15 minutes",
+        "30 minutes",
+        "1 hour",
+        "5 hours",
+    ]
+
     public static func actionForSavedApp(quitAppsInsteadOfHiding: Bool) -> SavedAppAction {
         return quitAppsInsteadOfHiding ? .terminate : .hide
     }

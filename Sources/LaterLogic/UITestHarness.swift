@@ -86,6 +86,7 @@ public struct UITestStateSnapshot: Equatable {
     public let globalShortcutsDisabled: Bool
     public let launchAtLoginEnabled: Bool
     public let swiftUIPopoverActive: Bool
+    public let popoverHeight: Int?
 
     public init(
         hasSession: Bool,
@@ -93,7 +94,8 @@ public struct UITestStateSnapshot: Equatable {
         timerScheduled: Bool,
         globalShortcutsDisabled: Bool,
         launchAtLoginEnabled: Bool,
-        swiftUIPopoverActive: Bool = false
+        swiftUIPopoverActive: Bool = false,
+        popoverHeight: Int? = nil
     ) {
         self.hasSession = hasSession
         self.savedAppCount = savedAppCount
@@ -101,6 +103,7 @@ public struct UITestStateSnapshot: Equatable {
         self.globalShortcutsDisabled = globalShortcutsDisabled
         self.launchAtLoginEnabled = launchAtLoginEnabled
         self.swiftUIPopoverActive = swiftUIPopoverActive
+        self.popoverHeight = popoverHeight
     }
 }
 
@@ -111,7 +114,8 @@ public enum UITestStateSnapshotComposer {
         timerScheduled: Bool,
         globalShortcutsDisabled: Bool,
         launchAtLoginEnabled: Bool,
-        swiftUIPopoverActive: Bool = false
+        swiftUIPopoverActive: Bool = false,
+        popoverHeight: Int? = nil
     ) -> UITestStateSnapshot {
         UITestStateSnapshot(
             hasSession: hasSession,
@@ -119,14 +123,15 @@ public enum UITestStateSnapshotComposer {
             timerScheduled: timerScheduled,
             globalShortcutsDisabled: globalShortcutsDisabled,
             launchAtLoginEnabled: launchAtLoginEnabled,
-            swiftUIPopoverActive: swiftUIPopoverActive
+            swiftUIPopoverActive: swiftUIPopoverActive,
+            popoverHeight: popoverHeight
         )
     }
 }
 
 public enum UITestStateEncoder {
     public static func encode(_ snapshot: UITestStateSnapshot) throws -> Data {
-        let payload: [String: Any] = [
+        var payload: [String: Any] = [
             "hasSession": snapshot.hasSession,
             "savedAppCount": snapshot.savedAppCount,
             "timerScheduled": snapshot.timerScheduled,
@@ -134,6 +139,9 @@ public enum UITestStateEncoder {
             "launchAtLoginEnabled": snapshot.launchAtLoginEnabled,
             "swiftUIPopoverActive": snapshot.swiftUIPopoverActive,
         ]
+        if let popoverHeight = snapshot.popoverHeight {
+            payload["popoverHeight"] = popoverHeight
+        }
         return try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
     }
 }

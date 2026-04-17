@@ -14,6 +14,7 @@ final class LaterUITests: XCTestCase {
         let globalShortcutsDisabled: Bool
         let launchAtLoginEnabled: Bool
         let swiftUIPopoverActive: Bool
+        let popoverHeight: Int?
 
         init?(dictionary: [String: Any]) {
             guard
@@ -32,6 +33,7 @@ final class LaterUITests: XCTestCase {
             self.globalShortcutsDisabled = globalShortcutsDisabled
             self.launchAtLoginEnabled = launchAtLoginEnabled
             self.swiftUIPopoverActive = dictionary["swiftUIPopoverActive"] as? Bool ?? false
+            self.popoverHeight = dictionary["popoverHeight"] as? Int
         }
     }
 
@@ -126,6 +128,41 @@ final class LaterUITests: XCTestCase {
 
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
         XCTAssertNotNil(waitForSnapshot { $0.swiftUIPopoverActive })
+    }
+
+    @MainActor
+    func testSwiftUIPopoverResizesForTimerVisibility() throws {
+        let app = launchApp(
+            stubSession: true,
+            resetDefaults: true,
+            extraArguments: ["USE_SWIFTUI_POPOVER", "UITEST_ENABLE_WAIT", "UITEST_TRIGGER_SAVE"]
+        )
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 5))
+
+        guard let expandedSnapshot = waitForSnapshot(predicate: { snapshot in
+            snapshot.swiftUIPopoverActive && snapshot.timerScheduled && snapshot.popoverHeight != nil
+        }) else {
+            XCTFail("Expected SwiftUI popover snapshot with visible timer")
+            return
+        }
+
+        app.terminate()
+
+        let cancelApp = launchApp(
+            stubSession: true,
+            extraArguments: ["USE_SWIFTUI_POPOVER", "UITEST_TRIGGER_CANCEL_TIMER"]
+        )
+        XCTAssertTrue(cancelApp.wait(for: .runningForeground, timeout: 5))
+
+        guard let compactSnapshot = waitForSnapshot(predicate: { snapshot in
+            snapshot.swiftUIPopoverActive && !snapshot.timerScheduled && snapshot.popoverHeight != nil
+        }) else {
+            XCTFail("Expected SwiftUI popover snapshot after timer cancel")
+            return
+        }
+
+        XCTAssertGreaterThan(expandedSnapshot.popoverHeight ?? 0, compactSnapshot.popoverHeight ?? 0)
+        cancelApp.terminate()
     }
 
     @MainActor

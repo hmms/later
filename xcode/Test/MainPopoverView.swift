@@ -68,9 +68,11 @@ struct MainPopoverViewState: Equatable {
 struct MainPopoverView: View {
     let state: MainPopoverViewState
     var shortcutsMenuTitle = "Disable all shortcuts"
+    var timerDurationOptions = SessionRules.reopenDurationOptions
     var onSave: () -> Void = {}
     var onRestore: () -> Void = {}
     var onCancelTimer: () -> Void = {}
+    var onSelectTimerDuration: (String) -> Void = { _ in }
     var onToggleCloseAppsOnRestore: () -> Void = {}
     var onToggleQuitAppsInsteadOfHiding: () -> Void = {}
     var onToggleWaitBeforeRestore: () -> Void = {}
@@ -199,15 +201,32 @@ struct MainPopoverView: View {
             HStack {
                 settingsRow("Reopen windows in", isOn: state.waitBeforeRestore, action: onToggleWaitBeforeRestore)
                 Spacer(minLength: 8)
-                Text(state.timerDuration)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.white.opacity(0.12))
-                    )
+                Menu {
+                    ForEach(timerDurationOptions, id: \.self) { option in
+                        Button {
+                            onSelectTimerDuration(option)
+                        } label: {
+                            HStack {
+                                Text(option)
+                                if option == state.timerDuration {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Text(state.timerDuration)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.white.opacity(0.12))
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("timerDurationMenu")
             }
             settingsRow("Ignore system windows", isOn: state.ignoreSystemWindows, action: onToggleIgnoreSystemWindows)
             settingsRow("Start at login", isOn: state.launchAtLogin, action: onToggleLaunchAtLogin)
